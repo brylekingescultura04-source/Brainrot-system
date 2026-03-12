@@ -238,12 +238,18 @@ img{
   <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:20px; position:relative;">
 
       <!-- EDIT BUTTON (LEFT SIDE) -->
-      <button class="btn"
-          style="width:auto; padding:5px 10px; font-size:14px;"
-          onclick="editTitle()">✏</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn"
+        style="width:auto; padding:5px 10px; font-size:14px;"
+        onclick="openTransactionHistoryModal()">📜</button>
+        </div>
 
-      <!-- TITLE -->
-      <h1 id="mainTitle" style="margin:0;">KRYPTIC BNS STOCKS LIST</h1>
+        <button class="btn"
+        style="width:auto; padding:5px 10px; font-size:14px;"
+        onclick="editTitle()">✏</button>
+
+<!-- TITLE -->
+<h1 id="mainTitle" style="margin:0;">KRYPTIC BNS STOCKS LIST</h1>
 
       <!-- MENU BUTTON (RIGHT SIDE) -->
       <div id="menuWrap">
@@ -614,7 +620,7 @@ btn.oncontextmenu = (e) => {
     }
 };
 
-let statusColor = total >= MAX_SLOTS ? "red" : "yellow";
+let statusColor = total >= maxSlots ? "red" : "yellow";
 
 btn.innerHTML = `
     <span style="color:white;">${name}</span>
@@ -811,33 +817,115 @@ function confirmAddItem(itemName,img,rarity){
     } else {
     acc[fullName].qty += qty;
 }
-    saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+    addTransaction("add", currentAccount, fullName, qty);
+    saveAccounts();
+    openInventory(currentAccount);
+    loadAccounts();
+    closeModal();
 }
+function openRemoveOrSoldChoice(itemName){
+    let acc = getAccountItems(currentAccount);
+    let item = acc[itemName];
 
+    if(!item){
+        alert("Item not found.");
+        return;
+    }
+
+    let maxQty = Number(item.qty) || 0;
+
+    let html = `
+        <h3>${itemName}</h3>
+        <p>Available: ${maxQty}</p>
+
+        <button onclick="openQuantityActionModal('${jsSafe(itemName)}', 'remove')">Remove</button>
+        <button onclick="openQuantityActionModal('${jsSafe(itemName)}', 'sold')">Sold</button>
+        <button onclick="openRemoveInventoryModal()">Back</button>
+    `;
+
+    showModal(html);
+}
+function openQuantityActionModal(itemName, actionType){
+    let acc = getAccountItems(currentAccount);
+    let item = acc[itemName];
+
+    if(!item){
+        alert("Item not found.");
+        return;
+    }
+
+    let maxQty = Number(item.qty) || 0;
+    let actionLabel = actionType === "sold" ? "Sold" : "Remove";
+
+    let html = `
+        <h3>${actionLabel} Brainrot</h3>
+        <p><b>Item:</b> ${itemName}</p>
+        <p><b>Available:</b> ${maxQty}</p>
+
+        <label>Quantity:</label>
+        <input id="actionQtyInput" type="number" min="1" max="${maxQty}" value="1"
+               style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+
+        <button onclick="confirmInventoryAction('${jsSafe(itemName)}', '${actionType}')">${actionLabel}</button>
+        <button onclick="openRemoveOrSoldChoice('${jsSafe(itemName)}')">Back</button>
+    `;
+
+    showModal(html);
+}
+function confirmInventoryAction(itemName, actionType){
+    let acc = getAccountItems(currentAccount);
+    let item = acc[itemName];
+
+    if(!item){
+        alert("Item not found.");
+        return;
+    }
+
+    let maxQty = Number(item.qty) || 0;
+    let qty = parseInt(document.getElementById("actionQtyInput").value);
+
+    if(isNaN(qty) || qty < 1 || qty > maxQty){
+        alert("Invalid quantity.");
+        return;
+    }
+
+    item.qty -= qty;
+
+    if(item.qty <= 0){
+        delete acc[itemName];
+    }
+
+    addTransaction(actionType, currentAccount, itemName, qty);
+
+    saveAccounts();
+    openInventory(currentAccount);
+    loadAccounts();
+    closeModal();
+}
 //===================
 // REMOVE INVENTORY MODAL
 //===================
 function openRemoveInventoryModal(){
     let acc = getAccountItems(currentAccount);
-    let items=Object.keys(acc);
-    if(items.length===0){alert("No items"); return;}
-    let html=`<h3>Remove Brainrot From Base</h3>`;
-    items.forEach((i,n)=>{ html+=`<button onclick="confirmRemoveInventory('${i}')">${i} (${acc[i].qty})</button>`; });
-    html+=`<button onclick="closeModal()">Cancel</button>`;
-    showModal(html);
-}
+    let items = Object.keys(acc);
 
-function confirmRemoveInventory(itemName){
-    let acc = getAccountItems(currentAccount);
-    let qty=acc[itemName].qty;
-    if(qty>1){
-        let removeQty=prompt(`Enter quantity to remove (1-${qty}):`);
-        removeQty=parseInt(removeQty);
-        if(isNaN(removeQty)||removeQty<1||removeQty>qty){alert("Invalid"); return;}
-        acc[itemName].qty-=removeQty;
-    } else { delete acc[itemName]; }
-    if(acc[itemName]?.qty<=0) delete acc[itemName];
-    saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+    if(items.length === 0){
+        alert("No items");
+        return;
+    }
+
+    let html = `<h3>Remove Brainrot From Base</h3>`;
+
+    items.forEach(itemName => {
+        html += `
+            <button onclick="openRemoveOrSoldChoice('${jsSafe(itemName)}')">
+                ${itemName} (${acc[itemName].qty})
+            </button>
+        `;
+    });
+
+    html += `<button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
 }
 
 //===================
@@ -865,6 +953,80 @@ function confirmRemoveItemName(itemName){
     }
 }
     saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+}
+function formatTransactionDate(isoString){
+    let d = new Date(isoString);
+    return d.toLocaleString();
+}
+
+function getTransactionColor(type){
+    if(type === "add") return "#22c55e";
+    if(type === "remove") return "#f59e0b";
+    if(type === "sold") return "#ef4444";
+    if(type === "transfer") return "#38bdf8";
+    return "white";
+}
+
+function openTransactionHistoryModal(filterType = "all"){
+    let filtered = transactionHistory.filter(tx => {
+        if(filterType === "all") return true;
+        return tx.type === filterType;
+    });
+
+    let html = `
+        <h3>Transaction History</h3>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('all')">All</button>
+            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('add')">Add</button>
+            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('remove')">Remove</button>
+            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('sold')">Sold</button>
+            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('transfer')">Transfer</button>
+        </div>
+    `;
+
+    if(filtered.length === 0){
+        html += `<p>No transaction history for this filter.</p>`;
+        html += `<button onclick="closeModal()">Close</button>`;
+        showModal(html);
+        return;
+    }
+
+    html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+
+    filtered.forEach(tx => {
+        html += `
+            <div style="
+                background:#0f172a;
+                padding:10px;
+                border-radius:8px;
+                border:1px solid rgba(255,255,255,0.08);
+            ">
+                <div style="
+                    font-weight:bold;
+                    color:${getTransactionColor(tx.type)};
+                    text-transform:uppercase;
+                    margin-bottom:6px;
+                ">
+                    ${tx.type}
+                </div>
+
+                <div><b>Account:</b> ${tx.account}</div>
+                ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
+                <div><b>Item:</b> ${tx.itemName}</div>
+                <div><b>Qty:</b> ${tx.qty}</div>
+                <div style="font-size:12px; opacity:0.8; margin-top:4px;">
+                    ${formatTransactionDate(tx.timestamp)}
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>
+        <button onclick="closeModal()">Close</button>
+    `;
+
+    showModal(html);
 }
 function filterItems(){
     let input = document.getElementById("itemSearch").value.toLowerCase();
@@ -1545,13 +1707,15 @@ function openBrainrotAccountSelector(baseName){
                 <div class="modal-grid">`;
 
     data.accounts.forEach(obj => {
-        html += `
-        <button onclick="openInventoryFromSearch('${obj.account}')">
-            ${obj.account} <br>
-            ${obj.fullName} x${obj.qty}
-        </button>
-        `;
-    });
+    html += `
+    <button
+        onclick="openInventoryFromSearch('${obj.account}')"
+        oncontextmenu="event.preventDefault(); openTransferBrainrotModal('${jsSafe(obj.account)}', '${jsSafe(obj.fullName)}')">
+        ${obj.account} <br>
+        ${obj.fullName} x${obj.qty}
+    </button>
+    `;
+});
 
     html += `
         </div>
@@ -1562,6 +1726,110 @@ function openBrainrotAccountSelector(baseName){
 }
 function saveAccountOrder(){
     localStorage.setItem("accountOrder", JSON.stringify(accountOrder));
+}
+function openTransferBrainrotModal(fromAccount, fullItemName){
+    let fromItems = getAccountItems(fromAccount);
+    let itemData = fromItems[fullItemName];
+
+    if(!itemData){
+        alert("Item not found in source account.");
+        return;
+    }
+
+    let qty = Number(itemData.qty) || 0;
+    if(qty <= 0){
+        alert("No quantity available to transfer.");
+        return;
+    }
+
+    let accountOptions = accountOrder
+        .filter(name => name !== fromAccount && accounts[name])
+        .map(name => `<option value="${name}">${name} (${getTotalItems(name)}/${getAccountMaxSlots(name)})</option>`)
+        .join("");
+
+    if(!accountOptions){
+        alert("No other existing account available.");
+        return;
+    }
+
+    let html = `
+        <h3>Transfer Brainrot</h3>
+        <p><b>From:</b> ${fromAccount}</p>
+        <p><b>Item:</b> ${fullItemName}</p>
+        <p><b>Available:</b> ${qty}</p>
+
+        <label>Target Account:</label>
+        <select id="transferTargetAccount" style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+            ${accountOptions}
+        </select>
+
+        <label>Quantity:</label>
+        <input id="transferQty" type="number" min="1" max="${qty}" value="1"
+               style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+
+        <button onclick="confirmTransferBrainrot('${jsSafe(fromAccount)}', '${jsSafe(fullItemName)}')">Transfer</button>
+        <button onclick="closeModal()">Cancel</button>
+    `;
+
+    showModal(html);
+}
+
+function confirmTransferBrainrot(fromAccount, fullItemName){
+    let toAccount = document.getElementById("transferTargetAccount").value;
+    let qty = Number(document.getElementById("transferQty").value);
+
+    if(!toAccount || !accounts[toAccount]){
+        alert("Target account does not exist.");
+        return;
+    }
+
+    let fromItems = getAccountItems(fromAccount);
+    let toItems = getAccountItems(toAccount);
+
+    let itemData = fromItems[fullItemName];
+    if(!itemData){
+        alert("Item not found in source account.");
+        return;
+    }
+
+    let availableQty = Number(itemData.qty) || 0;
+    if(!Number.isInteger(qty) || qty < 1 || qty > availableQty){
+        alert("Invalid quantity.");
+        return;
+    }
+
+    let freeSlots = getAccountMaxSlots(toAccount) - getTotalItems(toAccount);
+    if(freeSlots < qty){
+        alert(`Not enough space in ${toAccount}. Available slots: ${freeSlots}`);
+        return;
+    }
+
+    if(!toItems[fullItemName]){
+        toItems[fullItemName] = {
+            qty: qty,
+            img: itemData.img
+        };
+    } else {
+        toItems[fullItemName].qty += qty;
+    }
+
+    fromItems[fullItemName].qty -= qty;
+    if(fromItems[fullItemName].qty <= 0){
+        delete fromItems[fullItemName];
+    }
+    addTransaction("transfer", fromAccount, fullItemName, qty, { toAccount });
+
+    saveAccounts();
+    loadAccounts();
+    closeModal();
+
+    try{
+        searchAllBrainrots();
+    }catch(e){}
+
+    try{
+        openBrainrotAccountSelector(fullItemName.split(" - (")[0].trim());
+    }catch(e){}
 }
 function enableSmoothDrag(){
 
@@ -1660,7 +1928,28 @@ function importData(){
 function saveItemValues(){
     localStorage.setItem("itemValues", JSON.stringify(itemValues));
 }
+let transactionHistory = JSON.parse(localStorage.getItem("transactionHistory")) || [];
 
+function saveTransactionHistory(){
+    localStorage.setItem("transactionHistory", JSON.stringify(transactionHistory));
+}
+
+function addTransaction(type, account, itemName, qty, extra = {}){
+    transactionHistory.unshift({
+        type,
+        account,
+        itemName,
+        qty,
+        timestamp: new Date().toISOString(),
+        ...extra
+    });
+
+    if(transactionHistory.length > 1000){
+        transactionHistory = transactionHistory.slice(0, 1000);
+    }
+
+    saveTransactionHistory();
+}
 function getTierLabel(value){
     value = Number(value);
     if(!value) return "Unrated";
