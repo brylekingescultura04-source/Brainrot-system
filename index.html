@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Steal A Brainrots (STOCKS)</title>
+<style>
+    .tier-badge{
+    display:inline-block;
+    margin-left:8px;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:bold;
+}
+
+.tier-1{ background:#334155; color:white; } /* Low */
+.tier-2{ background:#22c55e; color:black; } /* Semi Mid */
+.tier-3{ background:#0ea5e9; color:white; } /* Mid */
+.tier-4{ background:#f59e0b; color:black; } /* High */
+.tier-5{ background:#ef4444; color:white; } /* Ultra High */
+
+.edit-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+.edit-row:last-child{
+    border-bottom:none;
+}
+
+.edit-row-left{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.edit-row select{
+    padding:6px;
+    border-radius:6px;
+    border:none;
+}
+#searchAllGrid{
+    display:grid;
+    grid-template-columns:repeat(11, minmax(120px,1fr));
+    gap:15px;
+    justify-content:center;
+    margin-top:15px;
+}
+.item-price{
+    position:absolute;
+    top:5px;
+    left:5px;
+
+    background:#00ff99;
+    color:black;
+
+    font-size:16px;
+    font-weight:bold;
+
+    padding:2px 6px;
+    border-radius:6px;
+}
+.searchAllItem{
+    position:relative;
+}
+.item-name{
+    color:white;
+    font-weight:bold;
+}
+
+.item-total{
+    color:red;
+    font-weight:bold;
+}
+.searchAllItem{
+    background:#1e293b;
+    padding:10px;
+    border-radius:10px;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.searchAllItem:hover{
+    transform:scale(1.05);
+}
+
+.searchAllItem img{
+    width:80px;
+    height:80px;
+}
+
+.searchAllItem p{
+    margin:5px 0 0 0;
+    font-size:12px;
+    font-weight:bold;
+}
+.modal-grid button {
+    min-width: 180px;   /* controls button width */
+    padding: 6px;
+    font-size: 12px;
+}
+.modal button {
+    width: auto;
+    min-width: 130px;
+}
+
+.modal-grid {
+    display: grid;
+    grid-template-rows: repeat(6, auto); /* EXACTLY 4 rows */
+    grid-auto-flow: column;              /* Fill down, then move right */
+    gap: 15px;
+    overflow-x: auto;                    /* Scroll horizontally if many items */
+    padding-bottom: 5px;
+}
+body{
+    font-family: Arial;
+    background:#0f172a;
+    color:white;
+    text-align:center;
+    margin:0;
+    padding:0;
+}
+#accounts{
+    display:grid;
+    grid-template-rows:repeat(11, auto);
+    grid-template-columns:repeat(4, 180px); /* 4 columns */
+    grid-auto-flow:column;
+    gap:15px 25px;
+    justify-content:center;
+    margin-top:20px;
+}
+.btn{
+    width:180px;
+    padding:8px;
+    background:#3b82f6;
+    border:none;
+    color:white;
+    cursor:pointer;
+    border-radius:8px;
+}
+.btn:hover{
+    background:#2563eb;
+}
+#items{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:15px;
+    justify-items:center;
+    margin-top:20px;
+}
+.item{
+    background:#1e293b;
+    padding:10px;
+    width:120px;
+    border-radius:10px;
+}
+img{
+    width:80px;
+    height:80px;
+}
+#inventoryPage{display:none;}
+.controls{margin-top:10px;}
+
+/* MODAL STYLES */
+.modal-bg{
+    position: fixed;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    background: rgba(0,0,0,0.7);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+.modal{
+    background:#1e293b;
+    padding:20px;
+    border-radius:10px;
+    width:90%;
+    max-width:1000px;   /* allow it to grow */
+    max-height:80vh;
+    overflow-y:auto;    /* scroll if too many items */
+    text-align:left;
+}
+.modal h3{margin-top:0;}
+.modal button{
+  margin-top:10px;
+  width:100%;
+}
+
+/* ✅ EXCEPTION para sa dataMenu */
+#menuWrap{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+}
+
+/* anchored na sa ☰ mismo */
+#dataMenu{
+  display:none;
+  position:absolute;
+  top:50%;
+  left:45px;    /* lalabas sa RIGHT side ng ☰ */
+  right:auto;                /* lalabas sa LEFT side ng ☰ */
+  transform:translateY(-50%);
+  background:#1e293b;
+  padding:10px;
+  border-radius:8px;
+  box-shadow:0 0 10px rgba(0,0,0,0.6);
+  z-index:999;
+  gap:10px;
+}
+
+/* open state */
+#dataMenu.open{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+}
+
+/* buttons sa menu */
+#dataMenu .btn{
+  width:auto !important;
+  min-width:150px;
+  margin-top:0 !important;
+}
+</style>
+</head>
+<body>
+
+<div id="accountPage">
+
+  <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:20px; position:relative;">
+
+      <!-- EDIT BUTTON (LEFT SIDE) -->
+      <button class="btn"
+          style="width:auto; padding:5px 10px; font-size:14px;"
+          onclick="editTitle()">✏</button>
+
+      <!-- TITLE -->
+      <h1 id="mainTitle" style="margin:0;">KRYPTIC BNS STOCKS LIST</h1>
+
+      <!-- MENU BUTTON (RIGHT SIDE) -->
+      <div id="menuWrap">
+  <button class="btn"
+    style="width:40px; padding:5px; font-size:18px;"
+    onclick="toggleDataMenu()">☰</button>
+
+  <div id="dataMenu">
+    <button class="btn" onclick="exportData()">⬇ Export Data</button>
+    <button class="btn" onclick="importData()">⬆ Import Data</button>
+  </div>
+</div>
+
+  </div>
+
+  <input type="file" id="importFile" accept=".json" style="display:none">
+
+  <input type="text" id="searchInput" placeholder="Search Brainrot..."
+    style="padding:8px;width:220px;border-radius:6px;border:none;margin-top:15px;">
+
+  <button class="btn" onclick="searchBrainrot()">Search</button>
+  <button class="btn" onclick="searchAllBrainrots()">Search All</button>
+  <button class="btn" onclick="openEditValuesModal()">Edit</button>
+
+  <div id="searchResults" style="margin-top:15px;"></div>
+  <div id="accounts"></div>
+
+</div>
+
+<div id="inventoryPage">
+    <h1 id="accountTitle"></h1>
+    <button class="btn" onclick="navigateToAccounts()">⬅ Back</button>
+
+    <div class="controls">
+        <button class="btn" onclick="openAddItemModal()">+ Add Brainrots</button>
+        <button class="btn" onclick="openRemoveInventoryModal()">- Remove Brainrots</button>
+    </div>
+
+    <div id="items"></div>
+</div>
+
+<!-- MODAL BACKGROUND -->
+<div id="modalBg" class="modal-bg">
+    <div id="modalContent" class="modal"></div>
+</div>
+
+<script>
+
+let itemValues = JSON.parse(localStorage.getItem("itemValues")) || {};
+
+// ==============
+// PRESYOOOOOOOOO
+// ==============
+const itemPrices = {
+  "Dragon Gingerini": 10, 
+"Dragon Cannelloni": 10,
+"Hydra Dragon Cannelloni": 10,
+"Ginger Gerat": 9,
+"Cerberus": 8,
+"La Casa Boo": 7,
+"Capitano Moby": 7,
+"Rosey and Teddy": 7,
+"Popcuru and Fizzuru": 7,
+"Cooki and Milki": 6,
+"Burguro And Fryuro": 6,
+"Spooky and Pumpky": 6,
+"Fragrama and Chocrama": 6,
+"Reinito Sleighito": 5,
+"Garama and Madundung": 6,
+"Los Spaghettis": 5,
+"Festive 67": 5,
+"Tralaledon": 5,
+"Chipso and Queso": 5,
+"La Secret Combinasion": 170,
+"Los Primos": 260,
+"Los Bros": 110,
+"Ketchuru and Musturu": 110,
+"La Ginger Sekolah": 3,
+"Chicleteira Cupideira": 30,
+"Tictac Sahur": 200,
+"La Taco Combinasion": 4,
+"W or L": 4,
+"Lavadorito Spinito": 3,
+"Ketupat Kepat": 110,
+"Las Sis": 4,
+"Eviledon": 200,
+"Swaggy Bros": 4,
+"Tang Tang Keletang": 3.5,
+"Rosetti Tualetti": 4,
+"Spaghetti Tualetti": 30,
+"Esok Sekolah": 20,
+"Mieteteira Bicicleteira": 100,
+"Bacuru and Egguru": 15,
+"Los 25": 8,
+"67": 8,
+"Los Quesadillas": 1,
+"Quesadilla Crocodila": 1,
+"Chicleteira Bicicleteira": 1,
+"Los Burritos": 60,
+"Money Money Puggy": 35,
+"Chimnino": 1,
+"Burrito Bandito": 1,
+"La Grande Combinasion": 30,
+"Noo my Heart": 35,
+"Los Jobcitos": 1,
+"Los Cucarachas": 1,
+"Pot Hotspot": 1,
+"Tung Tung Tung Sahur": 1,
+"Job Job Job Sahur": 1,
+"Spinny Hammy": 20,
+"Los Spooky Combinasionas": 40,
+"Los Candies": 15,
+"Los Nooo My Hotspotsitos": 10,
+"Los Quesadillas": 15,
+"Quesadilla Crocodila": 10,
+"Chicleteira Bicicleteira": 15,
+"Chimnino": 5,
+"Horegini Boom": 10,
+"Burrito Bandito": 10,
+"Los Jobcitos": 5,
+"Los Cucarachas": 5,
+"Pot Hotspot": 7,
+"Tung Tung Tung Sahur": 7,
+"Job Job Job Sahur": 7,
+"Santa Hotspot": 15,
+"Chicleteira Noelteira": 10,
+"Chicleteirina Bicicleteirina": 45,
+  
+};
+const MAX_SLOTS = 10;
+let currentAccount = "";
+let itemDatabase = JSON.parse(localStorage.getItem("itemDatabase")) || {
+    "Dragon Gingerini": "images/dragongingerini.png",
+    "Dragon Cannelloni": "images/dc.png",
+    "Hydra Dragon Cannelloni": "images/hdrag.png",
+    "Ginger Gerat": "images/gerat.png",
+    "Cerberus": "images/c.png",
+    "La Casa Boo": "images/lacas.png",
+    "Capitano Moby": "images/cap.png",
+    "Rosey and Teddy": "images/rosey.png",
+    "Popcuru and Fizzuru": "images/popc.png",
+    "Cooki and Milki": "images/cooki.png",
+    "Burguro And Fryuro": "images/burg.png",
+    "Spooky and Pumpky": "images/spooky.png",
+    "Fragrama and Chocrama": "images/fram.png",
+    "Reinito Sleighito": "images/rein.png",
+    "Garama and Madundung": "images/garama.png",
+    "Los Spaghettis": "images/loss.png",
+    "Festive 67": "images/fes.png",
+    "Tralaledon": "images/tral.png",
+    "Chipso and Queso": "images/chip.png",
+    "La Secret Combinasion": "images/lasec.png",
+    "Los Primos": "images/losp.png",
+    "Los Bros": "images/losb.png",
+    "Ketchuru and Musturu": "images/ketc.png",
+    "La Ginger Sekolah": "images/lagin.png",
+    "Chicleteira Cupideira": "images/chicc.png",
+    "Tictac Sahur": "images/tic.png",
+    "La Taco Combinasion": "images/lat.png",
+    "W or L": "images/wl.png",
+    "Lavadorito Spinito": "images/lava.png",
+    "Ketupat Kepat": "images/ket.png",
+    "Las Sis": "images/las.png",
+    "Eviledon": "images/ev.png",
+    "Swaggy Bros": "images/sw.png",
+    "Tang Tang Keletang": "images/tang.png",
+    "Rosetti Tualetti": "images/rosetti.png",
+    "Spaghetti Tualetti": "images/spag.png",
+    "Esok Sekolah": "images/esok.png",
+    "Mieteteira Bicicleteira": "images/miet.png"
+};
+function changePrice(baseName){
+  const current = itemPrices[baseName] ?? 0;
+
+  let input = prompt(`Change price for:\n${baseName}\n\nCurrent: ₱${Number(current).toLocaleString()}\nEnter new price:`, current);
+  if(input === null) return;
+
+  // allow commas
+  input = String(input).replace(/,/g, "").trim();
+  const newPrice = Number(input);
+
+  if(!Number.isFinite(newPrice) || newPrice < 0){
+    alert("Invalid price.");
+    return;
+  }
+
+  itemPrices[baseName] = newPrice;
+  saveItemPrices();
+
+  // refresh Search All view if it's currently shown
+  try { searchAllBrainrots(); } catch(e) {}
+}
+// ✅ load saved prices (override default itemPrices)
+const savedPrices = JSON.parse(localStorage.getItem("itemPrices")) || {};
+Object.assign(itemPrices, savedPrices);
+
+function saveItemPrices(){
+  localStorage.setItem("itemPrices", JSON.stringify(itemPrices));
+}
+
+let accounts = JSON.parse(localStorage.getItem("accounts")) || {
+    "Krypsabs1": {
+        items: {},
+        maxSlots: 10
+    } 
+};
+
+function normalizeAccounts(){
+    for(let name in accounts){
+        const acc = accounts[name];
+
+        if(
+            acc &&
+            typeof acc === "object" &&
+            !Array.isArray(acc) &&
+            !("items" in acc) &&
+            !("maxSlots" in acc)
+        ){
+            accounts[name] = {
+                items: { ...acc },
+                maxSlots: 10
+            };
+            continue;
+        }
+
+        if(!acc || typeof acc !== "object" || Array.isArray(acc)){
+            accounts[name] = {
+                items: {},
+                maxSlots: 10
+            };
+            continue;
+        }
+
+        if(!acc.items || typeof acc.items !== "object" || Array.isArray(acc.items)){
+            acc.items = {};
+        }
+
+        let slots = Number(acc.maxSlots);
+        if(!Number.isFinite(slots)) slots = 10;
+        if(slots < 10) slots = 10;
+        if(slots > 27) slots = 27;
+
+        acc.maxSlots = slots;
+    }
+
+    saveAccounts();
+}
+
+function getAccountItems(accountName){
+    const acc = accounts[accountName];
+
+    if(!acc || typeof acc !== "object") return {};
+
+    if(acc.items && typeof acc.items === "object" && !Array.isArray(acc.items)){
+        return acc.items;
+    }
+
+    return acc;
+}
+
+function getAccountMaxSlots(accountName){
+    const acc = accounts[accountName];
+
+    if(!acc || typeof acc !== "object") return 10;
+
+    let slots = Number(acc.maxSlots);
+    if(!Number.isFinite(slots)) return 10;
+    if(slots < 10) return 10;
+    if(slots > 27) return 27;
+
+    return slots;
+}
+let accountOrder = JSON.parse(localStorage.getItem("accountOrder")) || Object.keys(accounts);
+
+const accountsDiv = document.getElementById("accounts");
+const itemsDiv = document.getElementById("items");
+const modalBg = document.getElementById("modalBg");
+const modalContent = document.getElementById("modalContent");
+
+const rarityColors = { "Normal":"white", "Gold":"gold", "Diamond":"cyan" };
+
+//===================
+// SAVE FUNCTIONS
+//===================
+function saveAccounts(){ localStorage.setItem("accounts", JSON.stringify(accounts)); }
+function saveItemDatabase(){ localStorage.setItem("itemDatabase", JSON.stringify(itemDatabase)); }
+normalizeAccounts();
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    let savedTitle = localStorage.getItem("customTitle");
+
+    if(savedTitle){
+        document.getElementById("mainTitle").innerText = savedTitle;
+    }
+
+});
+function openInventoryFromSearch(accountName){
+    // close modal kung galing sa Search All popup
+    try { closeModal(); } catch(e) {}
+
+    // punta sa inventory via hash routing
+    location.hash = "inv=" + encodeURIComponent(accountName);
+
+    // backup call para sure
+    try { renderRoute(); } catch(e) {}
+}
+//===================
+// ACCOUNT LIST
+//===================
+function loadAccounts(){
+
+    accountsDiv.innerHTML="";
+
+    // CENTER ADD BUTTON
+    let addContainer=document.createElement("div");
+    addContainer.style.gridRow="1";
+    addContainer.style.gridColumn="1 / span 4";
+    addContainer.style.display="flex";
+    addContainer.style.justifyContent="center";
+    addContainer.style.marginBottom="10px";
+
+    let addBtn=document.createElement("button");
+    addBtn.className="btn";
+    addBtn.innerText="+ Add Account";
+    addBtn.onclick=addAccount;
+
+    addContainer.appendChild(addBtn);
+    accountsDiv.appendChild(addContainer);
+
+    // FIX ORDER if new accounts added
+    Object.keys(accounts).forEach(name=>{
+        if(!accountOrder.includes(name)){
+            accountOrder.push(name);
+        }
+    });
+
+    accountOrder = accountOrder.filter(name=>accounts[name]);
+
+    saveAccountOrder();
+
+    // CREATE BUTTONS
+    accountOrder.forEach((name,index)=>{
+
+        let total = getTotalItems(name);
+        let maxSlots = getAccountMaxSlots(name);
+        let label = total >= maxSlots ? "FULL" : total + "/" + maxSlots;
+
+        let btn=document.createElement("button");
+btn.className="btn";
+
+btn.onclick = () => navigateToInventory(name);
+
+// RIGHT CLICK 🔥
+btn.oncontextmenu = (e) => {
+    e.preventDefault();
+
+    let choice = confirm("Delete this account?\nPress OK to delete, Cancel to rename.");
+
+    if(choice){
+        delete accounts[name];
+        accountOrder = accountOrder.filter(acc => acc !== name);
+        saveAccounts();
+        saveAccountOrder();
+        loadAccounts();
+    } else {
+        openRenameAccountModal(name);
+    }
+};
+
+let statusColor = total >= MAX_SLOTS ? "red" : "yellow";
+
+btn.innerHTML = `
+    <span style="color:white;">${name}</span>
+    <span style="color:${statusColor}; font-weight:bold; margin-left:5px;">
+        (${label})
+    </span>
+`;
+
+        accountsDiv.appendChild(btn);
+
+    });
+    enableSmoothDrag();
+}
+function navigateToInventory(accountName){
+    location.hash = "inv=" + encodeURIComponent(accountName);
+}
+
+function navigateToAccounts(){
+    location.hash = "";
+}
+
+function addAccount(){
+    let name = prompt("Enter account name:");
+    if(!name) return;
+
+    name = name.trim();
+    if(!name) return;
+
+    if(accounts[name]){
+        alert("Account exists");
+        return;
+    }
+
+    let slotInput = prompt("Enter slot number (10 to 27)\nLeave blank for default 10:", "10");
+
+    let maxSlots;
+
+    if(slotInput === null){
+        // user pressed cancel on slot prompt
+        maxSlots = 10;
+    } else {
+        slotInput = String(slotInput).trim();
+
+        if(slotInput === ""){
+            maxSlots = 10;
+        } else {
+            maxSlots = Number(slotInput);
+
+            if(!Number.isInteger(maxSlots) || maxSlots < 10 || maxSlots > 27){
+                alert("Invalid slot number. Defaulting to 10.");
+                maxSlots = 10;
+            }
+        }
+    }
+
+    accounts[name] = {
+        items: {},
+        maxSlots: maxSlots
+    };
+
+    saveAccounts();
+    loadAccounts();
+}
+
+//===================
+// RENAME ACCOUNT
+//===================
+function openRenameAccountModal(oldName){
+    let html = `<h3>Rename Account</h3>
+        <label>New Name:</label>
+        <input id="newAccountName" value="${oldName}">
+        <button onclick="confirmRenameAccount('${oldName}')">Rename</button>
+        <button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
+}
+
+function confirmRenameAccount(oldName){
+    let newName = document.getElementById("newAccountName").value.trim();
+    if(!newName){ alert("Name cannot be empty"); return; }
+    if(accounts[newName]){ alert("Account already exists"); return; }
+    accounts[newName] = accounts[oldName];
+    delete accounts[oldName];
+    saveAccounts();
+    loadAccounts();
+    closeModal();
+}
+
+//===================
+// INVENTORY
+//===================
+
+function getTotalItems(accountName){
+    let total = 0;
+    let acc = getAccountItems(accountName);
+
+    for(let item in acc){
+        let q = Number(acc[item].qty);
+        if(!isNaN(q)) total += q;
+    }
+
+    return total;
+}
+
+//===================
+// MODAL HELPERS
+//===================
+function showModal(innerHTML){ modalContent.innerHTML=innerHTML; modalBg.style.display="flex"; }
+function closeModal(){ modalBg.style.display="none"; modalContent.innerHTML=""; }
+
+//===================
+// ADD ITEM MODAL
+//===================
+function openAddItemModal(){
+    let names = Object.keys(itemDatabase);
+
+    let html = `<h3>Select Brainrots</h3>
+    <input type="text" id="itemSearch" placeholder="Search Brainrot..."
+           onkeyup="filterItems()" style="width:100%;padding:6px;margin-bottom:10px;border-radius:6px;border:none;">`;
+
+    html += `<div class="modal-grid" id="itemGrid">`;
+
+    names.forEach((n,i)=>{ 
+        html += `<button class="item-btn" data-name="${n.toLowerCase()}"
+                    onclick="selectAddItem(${i})">${n}</button>`; 
+    });
+
+    html += `</div>
+    <br>
+    <button onclick="addNewItemModal()">Add New Brainrot</button>
+    <button onclick="openRemoveItemNameModal()">Remove Brainrot Name</button>
+    <button onclick="closeModal()">Cancel</button>`;
+
+    showModal(html);
+}
+
+function selectAddItem(index){
+    let names=Object.keys(itemDatabase);
+    let itemName=names[index];
+    let img=itemDatabase[itemName];
+    selectRarity(itemName,img);
+}
+
+function addNewItemModal(){
+    let html=`<h3>Add New Brainrot</h3>
+    <label>Brainrot Name:</label><input id="newItemName"><br>
+    <label>Image:</label><input id="newItemImg"><br>
+    <button onclick="confirmAddNewItem()">Add</button>
+    <button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
+}
+
+function confirmAddNewItem(){
+    let name=document.getElementById("newItemName").value.trim();
+    let img=document.getElementById("newItemImg").value.trim();
+    if(!name || !img){alert("Fill all fields"); return;}
+    img="images/"+img;
+    itemDatabase[name]=img; saveItemDatabase();
+    selectRarity(name,img);
+}
+
+//===================
+// SELECT RARITY
+//===================
+function selectRarity(itemName,img){
+    let html=`<h3>Select Traits/Mutation</h3>`;
+    ["Normal","Gold","Diamond","Other"].forEach(r=>{
+        if(r!=="Other"){
+            html+=`<button onclick="confirmAddItem('${itemName}','${img}','${r}')">${r}</button>`;
+        } else {
+            html+=`<button onclick="promptCustomRarity('${itemName}','${img}')">Other</button>`;
+        }
+    });
+    html+=`<button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
+}
+
+function promptCustomRarity(itemName,img){
+    let rarity=prompt("Enter custom Traits/Mutation:");
+    if(!rarity) return;
+    confirmAddItem(itemName,img,rarity);
+}
+
+function confirmAddItem(itemName,img,rarity){
+    let maxCanAdd = getAccountMaxSlots(currentAccount) - getTotalItems(currentAccount);
+    if(maxCanAdd<=0){alert("Inventory FULL!"); closeModal(); return;}
+    let qty=prompt(`Enter quantity (1 to ${maxCanAdd}):`);
+    qty=parseInt(qty);
+    if(isNaN(qty)||qty<1||qty>maxCanAdd){alert("Invalid"); return;}
+    let fullName=`${itemName} - (${rarity})`;
+    let acc = getAccountItems(currentAccount);
+
+    if(!acc[fullName]){
+    acc[fullName] = {qty, img};
+    } else {
+    acc[fullName].qty += qty;
+}
+    saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+}
+
+//===================
+// REMOVE INVENTORY MODAL
+//===================
+function openRemoveInventoryModal(){
+    let acc = getAccountItems(currentAccount);
+    let items=Object.keys(acc);
+    if(items.length===0){alert("No items"); return;}
+    let html=`<h3>Remove Brainrot From Base</h3>`;
+    items.forEach((i,n)=>{ html+=`<button onclick="confirmRemoveInventory('${i}')">${i} (${acc[i].qty})</button>`; });
+    html+=`<button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
+}
+
+function confirmRemoveInventory(itemName){
+    let acc = getAccountItems(currentAccount);
+    let qty=acc[itemName].qty;
+    if(qty>1){
+        let removeQty=prompt(`Enter quantity to remove (1-${qty}):`);
+        removeQty=parseInt(removeQty);
+        if(isNaN(removeQty)||removeQty<1||removeQty>qty){alert("Invalid"); return;}
+        acc[itemName].qty-=removeQty;
+    } else { delete acc[itemName]; }
+    if(acc[itemName]?.qty<=0) delete acc[itemName];
+    saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+}
+
+//===================
+// REMOVE ITEM NAME (DATABASE)
+//===================
+function openRemoveItemNameModal(){
+    let names=Object.keys(itemDatabase);
+    if(names.length===0){alert("No items in database"); return;}
+    let html=`<h3>Remove Item Name</h3>`;
+    names.forEach((n,i)=>{ html+=`<button onclick="confirmRemoveItemName('${n}')">${n}</button>`; });
+    html+=`<button onclick="closeModal()">Cancel</button>`;
+    showModal(html);
+}
+
+function confirmRemoveItemName(itemName){
+    if(!confirm("Delete Brainrot name: "+itemName+"?")) return;
+    delete itemDatabase[itemName]; saveItemDatabase();
+    for(let acc in accounts){
+    let items = getAccountItems(acc);
+
+    for(let item in items){
+        if(item.startsWith(itemName + " - (")){
+            delete items[item];
+        }
+    }
+}
+    saveAccounts(); openInventory(currentAccount); loadAccounts(); closeModal();
+}
+function filterItems(){
+    let input = document.getElementById("itemSearch").value.toLowerCase();
+    let buttons = document.querySelectorAll(".item-btn");
+
+    buttons.forEach(btn=>{
+        let name = btn.getAttribute("data-name");
+        if(name.includes(input)){
+            btn.style.display = "block";
+        } else {
+            btn.style.display = "none";
+        }
+    });
+}
+function getAllBrainrotNames(){
+    let names = new Set();
+
+    // 1. from itemDatabase
+    Object.keys(itemDatabase || {}).forEach(name => names.add(name));
+
+    // 2. from itemValues
+    Object.keys(itemValues || {}).forEach(name => names.add(name));
+
+    // 3. from itemPrices
+    Object.keys(itemPrices || {}).forEach(name => names.add(name));
+
+    // 4. from accounts inventory
+    Object.values(accounts || {}).forEach(acc => {
+        Object.keys(acc || {}).forEach(fullName => {
+            let baseName = fullName.split(" - (")[0].trim();
+            if(baseName) names.add(baseName);
+        });
+    });
+
+    return [...names];
+}
+function openEditValuesModal(){
+    let names = getAllBrainrotNames().sort((a,b) => a.localeCompare(b));
+
+    let html = `
+        <h3>Edit Brainrot Tier Values</h3>
+        <p style="margin-top:0;">
+            1 = Low Tier | 2 = Mid Tier | 3 = High Tier | 4 = Ultra High Tier
+        </p>
+
+        <input type="text" id="editValueSearch" placeholder="Search Brainrot..."
+               onkeyup="filterEditValues()"
+               style="width:100%;padding:8px;margin-bottom:12px;border-radius:6px;border:none;">
+
+        <div id="editValuesList" style="max-height:420px; overflow-y:auto; padding-right:6px;">
+    `;
+
+    names.forEach(name => {
+        let hasValue = Object.prototype.hasOwnProperty.call(itemValues, name);
+        let currentValue = Object.prototype.hasOwnProperty.call(itemValues, name)
+    ? Number(itemValues[name])
+    : 0;
+
+        html += `
+            <div class="edit-row edit-value-row" data-name="${name.toLowerCase()}">
+                <div class="edit-row-left">
+                    <span style="font-weight:bold;">${name}</span>
+                    <span class="tier-badge ${getTierClass(currentValue)}" id="tierLabel-${escapeId(name)}">
+                        ${getTierLabel(currentValue)}
+                    </span>
+                </div>
+
+                <select onchange="updateBrainrotValue('${jsSafe(name)}', this.value)">
+                <option value="0" ${currentValue===0 ? "selected" : ""}>Unrated</option>
+                <option value="1" ${currentValue===1 ? "selected" : ""}>1 - Low</option>
+                <option value="2" ${currentValue===2 ? "selected" : ""}>2 - Semi Mid</option>
+                <option value="3" ${currentValue===3 ? "selected" : ""}>3 - Mid</option>
+                <option value="4" ${currentValue===4 ? "selected" : ""}>4 - High</option>
+                <option value="5" ${currentValue===5 ? "selected" : ""}>5 - Ultra High</option>
+            </select>
+            </div>
+        `;
+    });
+
+    html += `
+        </div>
+        <button onclick="closeModal()">Close</button>
+    `;
+
+    showModal(html);
+}
+
+function updateBrainrotValue(name, value){
+    value = Number(value);
+
+    if(!value){
+        delete itemValues[name];
+    } else {
+        itemValues[name] = value;
+    }
+
+    saveItemValues();
+
+    let label = document.getElementById("tierLabel-" + escapeId(name));
+    if(label){
+        label.className = "tier-badge " + getTierClass(value);
+        label.textContent = getTierLabel(value);
+    }
+
+    try { searchAllBrainrots(); } catch(e) {}
+}
+
+function filterEditValues(){
+    let input = document.getElementById("editValueSearch").value.toLowerCase().trim();
+    let rows = document.querySelectorAll(".edit-value-row");
+
+    rows.forEach(row => {
+        let name = row.getAttribute("data-name");
+        row.style.display = name.includes(input) ? "flex" : "none";
+    });
+}
+
+function escapeId(text){
+    return text.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function jsSafe(text){
+    return text.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+function searchBrainrot(){
+
+    let keyword = document.getElementById("searchInput").value.toLowerCase().trim();
+    let resultsDiv = document.getElementById("searchResults");
+
+    if(!keyword){
+        resultsDiv.innerHTML = "Enter Brainrot name.";
+        return;
+    }
+
+    // ✅ DECLARE THIS (missing in your code)
+    let grouped = {};
+    let totals = {};   // rarity totals across all accounts
+
+    // ======================
+    // COLLECT MATCHES
+    // ======================
+    for(let accountName in accounts){
+
+        let acc = getAccountItems(accountName);
+
+        for(let itemFullName in acc){
+
+            if(!itemFullName.toLowerCase().includes(keyword)) continue;
+
+            let itemData = acc[itemFullName];
+            let qty = Number(itemData.qty) || 0;
+
+            // base name: "Dragon Gingerini" from "Dragon Gingerini - (Gold)"
+            let baseName = itemFullName.split(" - (")[0].trim();
+            let img = itemData.img || itemDatabase[baseName] || "images/empty.png";
+            // rarity from "(Gold)"
+            let rarityMatch = itemFullName.match(/\(([^)]+)\)/);
+            let rarity = rarityMatch ? rarityMatch[1] : "Normal";
+
+            // ✅ init grouped per baseName
+            if(!grouped[baseName]){
+                grouped[baseName] = {
+                    img,
+                    rarities: {},
+                    accounts: []
+                };
+            }
+
+            // ✅ add rarity qty
+            grouped[baseName].rarities[rarity] =
+                (grouped[baseName].rarities[rarity] || 0) + qty;
+
+            // ✅ keep account-level rows (for left list)
+            grouped[baseName].accounts.push({
+                account: accountName,
+                fullName: itemFullName,
+                qty: qty,
+                rarity: rarity
+            });
+
+            // ✅ totals box on right
+            totals[rarity] = (totals[rarity] || 0) + qty;
+        }
+    }
+
+    // if nothing matched
+    let baseNames = Object.keys(grouped);
+    if(baseNames.length === 0){
+        resultsDiv.innerHTML = "Not found in any account.";
+        return;
+    }
+
+    // ======================
+    // BUILD LEFT LIST (per account rows)
+    // ======================
+    let found = [];
+    baseNames.forEach(baseName => {
+        grouped[baseName].accounts.forEach(row => {
+
+            let rarity = row.rarity;
+
+            // color logic
+            let color =
+                rarity === "Normal" ? "white" :
+                rarity === "Gold" ? "gold" :
+                rarity === "Diamond" ? "cyan" :
+                "red";
+
+            found.push({
+                account: row.account,
+                item: baseName + ` - (${rarity})`,
+                qty: row.qty,
+                color
+            });
+        });
+    });
+
+    // =======================
+    // MAIN LAYOUT (LEFT + RIGHT)
+    // =======================
+    let html = `
+    <div style="text-align:center; margin-bottom:10px;">
+        <button class="btn" onclick="revealAll()">Reveal All</button>
+    </div>
+
+    <div style="display:flex; justify-content:center; gap:20px; align-items:flex-start; margin-top:0;">
+        <div id="searchResultsLeft">
+    `;
+
+    found.forEach(f=>{
+        html += `
+        <div style="margin-bottom:6px;">
+            <span
+                class="blurred"
+                style="
+                    cursor:pointer;
+                    color:#3b82f6;
+                    font-weight:bold;
+                    filter: blur(5px);
+                    transition: 0.2s;
+                "
+                onclick="handleAccountClick(this, '${f.account}')">
+                ${f.account}
+            </span>
+            →
+            <span style="color:${f.color}; font-weight:bold;">
+                ${f.item}
+            </span>
+            x${f.qty}
+        </div>
+        `;
+    });
+
+    html += `</div>`;
+
+    // RIGHT SIDE totals
+    html += `
+    <div style="
+        min-width:180px;
+        background:#1e293b;
+        padding:10px;
+        border-radius:5px;
+        box-shadow:0 0 10px rgba(0,0,0,0.5);
+    ">
+        <b>TOTAL</b><br><br>
+    `;
+
+    const fixedOrder = ["Normal", "Gold", "Diamond"];
+
+    fixedOrder.forEach(r => {
+        if(totals[r]){
+            let c = r === "Normal" ? "white" : (r === "Gold" ? "gold" : "cyan");
+            html += `<div style="color:${c}; margin-bottom:5px; font-weight:bold;">${r}: ${totals[r]}</div>`;
+        }
+    });
+
+    let customRarities = Object.keys(totals).filter(r => !fixedOrder.includes(r));
+    customRarities.sort((a,b)=>{
+        let na = parseFloat(a);
+        let nb = parseFloat(b);
+        if(isNaN(na) || isNaN(nb)) return a.localeCompare(b);
+        return na - nb;
+    });
+
+    customRarities.forEach(r=>{
+        html += `<div style="color:red; margin-bottom:5px; font-weight:bold;">${r}: ${totals[r]}</div>`;
+    });
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    resultsDiv.innerHTML = html;
+}
+function openInventory(name){
+    currentAccount = name;
+
+    document.getElementById("accountPage").style.display = "none";
+    document.getElementById("inventoryPage").style.display = "block";
+    document.getElementById("accountTitle").innerText = name + " INVENTORY";
+
+    // ✅ force top after switch (very reliable)
+    requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        document.getElementById("inventoryPage").scrollIntoView({behavior:"auto", block:"start"});
+    });
+
+    let html="";
+    let acc = getAccountItems(name);
+    let itemList=[];
+
+    for(let item in acc){
+        for(let i=0;i<acc[item].qty;i++){
+            itemList.push({name:item,img:acc[item].img});
+        }
+    }
+
+    let maxSlots = getAccountMaxSlots(name);
+
+    while(itemList.length < maxSlots){
+    itemList.push({name:"Empty",img:"images/empty.png"});
+}
+
+    itemList.slice(0, maxSlots).forEach(obj=>{
+        let match=obj.name.match(/\(([^)]+)\)$/);
+        let rarity=match?match[1]:"Normal";
+        let color=["Normal","Gold","Diamond"].includes(rarity)?rarityColors[rarity]:"red";
+
+        html+=`<div class="item">
+            <img src="${obj.img}" onerror="this.src='images/empty.png'">
+            <p style="color:${color}">${obj.name}</p>
+        </div>`;
+    });
+
+    itemsDiv.innerHTML=html;
+}
+//===================
+// BACK
+//===================
+function goBack(){
+
+    document.getElementById("inventoryPage").style.display="none";
+    document.getElementById("accountPage").style.display="block";
+
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+
+    loadAccounts();
+}
+function getTotalBrainrots(){
+
+    let total = 0;
+
+    for(let accountName in accounts){
+
+        let acc = accounts[accountName];
+
+        for(let item in acc){
+
+            total += acc[item].qty;
+
+        }
+
+    }
+
+    return total;
+}
+
+function handleAccountClick(element, accountName){
+
+    // check kung revealed na
+    if(element.classList.contains("revealed")){
+        openInventoryFromSearch(accountName);
+    } else {
+        element.classList.add("revealed");
+        element.style.filter = "none";
+        element.innerText = accountName; // reveal name
+    }
+
+}
+function revealAll(){
+
+    let elements = document.querySelectorAll(".blurred");
+
+    elements.forEach(el=>{
+        el.classList.add("revealed");
+        el.style.filter = "none";
+    });
+
+}
+function toggleDataMenu(){
+    let menu = document.getElementById("dataMenu");
+    menu.classList.toggle("open");
+}
+document.addEventListener("click", function(event){
+    let menu = document.getElementById("dataMenu");
+    let button = event.target.closest("button");
+
+    if(!event.target.closest("#dataMenu") && (!button || button.innerText !== "☰")){
+        menu.classList.remove("open");
+    }
+});
+document.getElementById("importFile").addEventListener("change", function(event){
+
+    let file = event.target.files[0];
+    if(!file) return;
+
+    let reader = new FileReader();
+
+    reader.onload = function(e){
+
+        try{
+            let data = JSON.parse(e.target.result);
+
+            if(!data.accounts){
+                alert("Invalid backup file.");
+                return;
+            }
+
+            if(confirm("Importing will overwrite current data. Continue?")){
+
+                accounts = data.accounts || {};
+                itemDatabase = data.itemDatabase || {};
+                accountOrder = data.accountOrder || Object.keys(accounts);
+                normalizeAccounts();
+                saveAccounts();
+                saveItemDatabase();
+                saveAccountOrder();
+
+                renderRoute();
+                alert("Import successful!");
+            }
+
+        }catch(err){
+            alert("Invalid JSON file.");
+        }
+
+    };
+
+    reader.readAsText(file);
+
+});
+
+function editTitle(){
+
+    let currentTitle = document.getElementById("mainTitle").innerText;
+
+    let newTitle = prompt("Enter new system name:", currentTitle);
+
+    if(!newTitle || newTitle.trim() === "") return;
+
+    document.getElementById("mainTitle").innerText = newTitle;
+
+    localStorage.setItem("customTitle", newTitle);
+}
+
+function searchAllBrainrots(){
+
+    let keyword = document.getElementById("searchInput").value.toLowerCase().trim();
+    let resultsDiv = document.getElementById("searchResults");
+
+    let grouped = {};
+    let html = `<div id="searchAllGrid">`;
+
+    // GROUP ITEMS
+    for(let accountName in accounts){
+
+        let acc = getAccountItems(accountName);
+
+        for(let itemFullName in acc){
+
+            if(keyword !== "" && !itemFullName.toLowerCase().includes(keyword)) continue;
+
+            let itemData = acc[itemFullName];
+            let img = itemData.img;
+            let qty = itemData.qty;
+
+            // ✅ extract base name
+            let baseName = itemFullName.split(" - (")[0].trim();
+            console.log(baseName, itemValues[baseName]);
+            // ✅ get value (IMPORTANT)
+            let value = Object.prototype.hasOwnProperty.call(itemValues, baseName)
+            ? Number(itemValues[baseName])
+            : 0;
+
+            // ✅ create if not exist
+            if(!grouped[baseName]){
+    grouped[baseName] = {
+        img: img,
+        total: 0,
+        value: 0,
+        accounts: []
+    };
+}
+
+// 🔥 Always update value to highest detected
+grouped[baseName].value = Math.max(grouped[baseName].value, value);
+
+            // ✅ add totals
+            grouped[baseName].total += qty;
+
+            grouped[baseName].accounts.push({
+                account: accountName,
+                fullName: itemFullName,
+                qty: qty
+            });
+        }
+    }
+
+    // ======================
+    // SORTING 🔥
+    // ======================
+    let sortedItems = Object.entries(grouped);
+
+    sortedItems.sort((a, b) => {
+    const baseNameA = a[0];
+    const baseNameB = b[0];
+
+    const dataA = a[1];
+    const dataB = b[1];
+
+    const tierA = getTierRank(dataA.value);
+    const tierB = getTierRank(dataB.value);
+
+    // 1. Sort by tier first
+    if (tierB !== tierA) {
+        return tierB - tierA;
+    }
+
+    // 2. If same tier, sort by highest price
+    const priceA = Number(itemPrices[baseNameA] || 0);
+    const priceB = Number(itemPrices[baseNameB] || 0);
+
+    if (priceB !== priceA) {
+        return priceB - priceA;
+    }
+
+    // 3. If same price, sort by total qty
+    if (dataB.total !== dataA.total) {
+        return dataB.total - dataA.total;
+    }
+
+    // 4. If same pa rin, alphabetical
+    return baseNameA.localeCompare(baseNameB);
+});
+
+    let foundAny = false;
+
+    // ======================
+    // DISPLAY
+    // ======================
+    for(let [baseName, data] of sortedItems){
+
+    foundAny = true;
+
+    // detect highest priority rarity
+    let rarityCount = {};
+
+    data.accounts.forEach(obj=>{
+        let match = obj.fullName.match(/\(([^)]+)\)/);
+        let rarity = match ? match[1] : "Normal";
+
+        if(!rarityCount[rarity]){
+            rarityCount[rarity] = 0;
+        }
+
+        rarityCount[rarity] += obj.qty;
+    });
+
+    let rarityToShow = "";
+    let qtyToShow = 0;
+
+    if(rarityCount["Normal"]){
+        rarityToShow = "Normal";
+        qtyToShow = rarityCount["Normal"];
+    }
+    else if(rarityCount["Gold"]){
+        rarityToShow = "Gold";
+        qtyToShow = rarityCount["Gold"];
+    }
+    else if(rarityCount["Diamond"]){
+        rarityToShow = "Diamond";
+        qtyToShow = rarityCount["Diamond"];
+    }
+    else{
+    let highestCustom = null;
+    let highestValue = -1;
+
+    for(let r in rarityCount){
+
+        // skip normal/gold/diamond
+        if(["Normal","Gold","Diamond"].includes(r)) continue;
+
+        // kunin number (ex: 322M/s → 322)
+        let num = parseFloat(r);
+
+        if(num > highestValue){
+            highestValue = num;
+            highestCustom = r;
+        }
+    }
+
+    rarityToShow = highestCustom;
+    qtyToShow = rarityCount[highestCustom];
+}
+
+    let price = itemPrices[baseName] || 0;
+
+html += `
+<div class="searchAllItem"
+    onclick="openBrainrotAccountSelector('${baseName}')"
+    oncontextmenu="event.preventDefault(); changePrice('${baseName}');">
+
+    <!-- 🔥 PRICE TAG -->
+    <div class="item-price">₱${price.toLocaleString()}</div>
+
+    <img src="${data.img}" onerror="this.src='images/empty.png'">
+
+    <p class="item-name">
+        ${baseName}
+        <span style="color:orange;">
+            (${rarityToShow})
+        </span>
+        <span class="item-total">
+            (${qtyToShow}x)
+        </span>
+    </p>
+
+</div>
+`;
+}
+
+    html += `</div>`;
+
+    if(!foundAny){
+        resultsDiv.innerHTML = "No Brainrots found.";
+        return;
+    }
+
+    resultsDiv.innerHTML = html;
+
+    // save for modal
+    window.groupedSearchData = grouped;
+}
+function openBrainrotAccountSelector(baseName){
+
+    let data = window.groupedSearchData[baseName];
+    if(!data) return;
+
+    // 🔥 SORT BY RARITY ORDER
+    const rarityOrder = {
+        "Normal": 1,
+        "Gold": 2,
+        "Diamond": 3
+    };
+
+    data.accounts.sort((a, b) => {
+
+        let rarityA = a.fullName.match(/\(([^)]+)\)/);
+        let rarityB = b.fullName.match(/\(([^)]+)\)/);
+
+        rarityA = rarityA ? rarityA[1] : "Normal";
+        rarityB = rarityB ? rarityB[1] : "Normal";
+
+        let orderA = rarityOrder[rarityA] || 4; // custom rarities = 4
+        let orderB = rarityOrder[rarityB] || 4;
+
+        if(orderA !== orderB){
+            return orderA - orderB;
+        }
+
+        // optional: sort by qty inside same rarity (highest first)
+        return b.qty - a.qty;
+    });
+
+    let html = `<h3>${baseName}</h3>
+                <p>Total: ${data.total}</p>
+                <div class="modal-grid">`;
+
+    data.accounts.forEach(obj => {
+        html += `
+        <button onclick="openInventoryFromSearch('${obj.account}')">
+            ${obj.account} <br>
+            ${obj.fullName} x${obj.qty}
+        </button>
+        `;
+    });
+
+    html += `
+        </div>
+        <button onclick="closeModal()">Close</button>
+    `;
+
+    showModal(html);
+}
+function saveAccountOrder(){
+    localStorage.setItem("accountOrder", JSON.stringify(accountOrder));
+}
+function enableSmoothDrag(){
+
+    let buttons =
+        document.querySelectorAll("#accounts .btn");
+
+    buttons.forEach((btn,index)=>{
+
+        if(btn.innerText.includes("Add Account")) return;
+
+        btn.onmousedown=function(e){
+
+    // ❌ wag galawin pag right click
+    if(e.button !== 0) return;
+
+            let draggedIndex=index-1;
+
+            btn.style.opacity="0.5";
+
+            document.onmouseup=function(){
+
+                btn.style.opacity="1";
+
+                document.onmousemove=null;
+
+            };
+
+            document.onmousemove=function(e){
+
+                let elementBelow =
+                    document.elementFromPoint(
+                        e.clientX,
+                        e.clientY
+                    );
+
+                if(!elementBelow) return;
+
+                if(
+                    elementBelow.classList.contains("btn") &&
+                    !elementBelow.innerText.includes("Add Account")
+                ){
+
+                    let buttonsArray =
+                        [...document.querySelectorAll("#accounts .btn")]
+                        .filter(b=>!b.innerText.includes("Add Account"));
+
+                    let targetIndex =
+                        buttonsArray.indexOf(elementBelow);
+
+                    if(targetIndex===-1) return;
+
+                    let moved=
+                        accountOrder.splice(draggedIndex,1)[0];
+
+                    accountOrder.splice(targetIndex,0,moved);
+
+                    draggedIndex=targetIndex;
+
+                    saveAccountOrder();
+                    loadAccounts();
+
+                }
+
+            };
+
+        };
+
+    });
+
+}
+function exportData(){
+
+    let data = {
+        version: 1,
+        accounts: accounts,
+        itemDatabase: itemDatabase,
+        accountOrder: accountOrder
+    };
+
+    let json = JSON.stringify(data, null, 2);
+
+    let blob = new Blob([json], { type: "application/json" });
+
+    let url = URL.createObjectURL(blob);
+
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = "kryptic-bns-backup.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+function importData(){
+    document.getElementById("importFile").click();
+}
+function saveItemValues(){
+    localStorage.setItem("itemValues", JSON.stringify(itemValues));
+}
+
+function getTierLabel(value){
+    value = Number(value);
+    if(!value) return "Unrated";
+
+    switch(value){
+        case 1: return "Low Tier";
+        case 2: return "Semi Mid Tier";
+        case 3: return "Mid Tier";
+        case 4: return "High Tier";
+        case 5: return "Ultra High Tier";
+        default: return "Unrated";
+    }
+}
+
+function getTierClass(value){
+    value = Number(value);
+    if(!value) return "";
+
+    switch(value){
+        case 1: return "tier-1";
+        case 2: return "tier-2";
+        case 3: return "tier-3";
+        case 4: return "tier-4";
+        case 5: return "tier-5";
+        default: return "";
+    }
+}
+function getTierRank(value){
+    value = Number(value) || 0;
+
+    if(value === 5) return 5;
+    if(value === 4) return 4;
+    if(value === 3) return 3;
+    if(value === 2) return 2;
+    if(value === 1) return 1;
+    return 0; // Unrated
+}
+function renderRoute(){
+
+    window.scrollTo(0,0);
+
+    const hash = location.hash.replace("#", "");
+
+    if(hash.startsWith("inv=")){
+        const accountName = decodeURIComponent(hash.slice(4));
+
+        // ✅ HIDE ACCOUNTS
+        document.getElementById("accountPage").style.display = "none";
+        document.getElementById("inventoryPage").style.display = "block";
+
+        openInventory(accountName);
+
+    } else {
+
+        // ✅ SHOW ACCOUNTS
+        document.getElementById("inventoryPage").style.display = "none";
+        document.getElementById("accountPage").style.display = "block";
+
+        loadAccounts();
+    }
+}
+
+// run route on back/forward + on first load
+window.addEventListener("hashchange", renderRoute);
+document.addEventListener("DOMContentLoaded", renderRoute);
+// START
+</script>
+</body>
+</html>
