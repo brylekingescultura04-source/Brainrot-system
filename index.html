@@ -895,7 +895,17 @@ function confirmInventoryAction(itemName, actionType){
         delete acc[itemName];
     }
 
-    addTransaction(actionType, currentAccount, itemName, qty);
+    let extra = {};
+
+    if(actionType === "sold"){
+    let baseName = itemName.split(" - (")[0].trim();
+    let unitPrice = Number(itemPrices[baseName] || 0);
+
+    extra.unitPrice = unitPrice;
+    extra.totalPrice = unitPrice * qty;
+}
+
+    addTransaction(actionType, currentAccount, itemName, qty, extra);
 
     saveAccounts();
     openInventory(currentAccount);
@@ -966,27 +976,148 @@ function getTransactionColor(type){
     if(type === "transfer") return "#38bdf8";
     return "white";
 }
+function matchesTransactionDateFilter(tx, dateFilter){
+    if(dateFilter === "all") return true;
 
-function openTransactionHistoryModal(filterType = "all"){
-    let filtered = transactionHistory.filter(tx => {
-        if(filterType === "all") return true;
-        return tx.type === filterType;
+    const txDate = new Date(tx.timestamp);
+    const now = new Date();
+
+    if(dateFilter === "day"){
+        return (
+            txDate.getFullYear() === now.getFullYear() &&
+            txDate.getMonth() === now.getMonth() &&
+            txDate.getDate() === now.getDate()
+        );
+    }
+
+    if(dateFilter === "week"){
+        const diffMs = now - txDate;
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        return diffDays >= 0 && diffDays <= 7;
+    }
+
+    if(dateFilter === "year"){
+        return txDate.getFullYear() === now.getFullYear();
+    }
+
+    return true;
+}
+function getTransactionSummary(list){
+    let summary = {
+        count: 0,
+        totalQty: 0,
+        totalSoldAmount: 0
+    };
+
+    list.forEach(tx => {
+        summary.count += 1;
+        summary.totalQty += Number(tx.qty || 0);
+
+        if(tx.type === "sold"){
+            summary.totalSoldAmount += Number(tx.totalPrice || 0);
+        }
     });
 
+    return summary;
+}
+function openTransactionHistoryModal(filterType = "all", dateFilter = "all"){
+    let filtered = transactionHistory.filter(tx => {
+    const matchesType = filterType === "all" ? true : tx.type === filterType;
+    const matchesDate = matchesTransactionDateFilter(tx, dateFilter);
+    return matchesType && matchesDate;
+});
+let summary = getTransactionSummary(filtered);
     let html = `
-        <h3>Transaction History</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+        <h3 style="margin:0;">Transaction History</h3>
 
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('all')">All</button>
-            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('add')">Add</button>
-            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('remove')">Remove</button>
-            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('sold')">Sold</button>
-            <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('transfer')">Transfer</button>
+        <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+            <select
+                id="historyDateFilter"
+                onchange="openTransactionHistoryModal('${filterType}', this.value)"
+                style="
+                    padding:8px 10px;
+                    border-radius:8px;
+                    border:none;
+                    background:#0f172a;
+                    color:white;
+                    min-width:200px;
+                ">
+                <option value="all" ${dateFilter === "all" ? "selected" : ""}>All Transaction</option>
+                <option value="day" ${dateFilter === "day" ? "selected" : ""}>This Day Transaction</option>
+                <option value="week" ${dateFilter === "week" ? "selected" : ""}>Last Week Transaction</option>
+                <option value="year" ${dateFilter === "year" ? "selected" : ""}>Last Year Transaction</option>
+            </select>
+
+            <button onclick="closeModal()" 
+                style="
+                    background:none;
+                    border:none;
+                    color:white;
+                    font-size:22px;
+                    cursor:pointer;
+                    width:auto !important;
+                    min-width:0 !important;
+                    margin:0 !important;
+                    padding:0 !important;
+                    line-height:1;
+                    flex:0 0 auto;
+                ">
+                ✖
+            </button>
         </div>
-    `;
+    </div>
 
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('all', '${dateFilter}')">All</button>
+        <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('add', '${dateFilter}')">Add</button>
+        <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('remove', '${dateFilter}')">Remove</button>
+        <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('sold', '${dateFilter}')">Sold</button>
+        <button class="btn" style="width:auto; min-width:90px;" onclick="openTransactionHistoryModal('transfer', '${dateFilter}')">Transfer</button>
+    </div>
+`;
+html += `
+    <div style="
+        display:grid;
+        grid-template-columns:repeat(3, minmax(180px, 1fr));
+        gap:10px;
+        margin-bottom:14px;
+    ">
+        <div style="
+            background:#0f172a;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.08);
+        ">
+            <div style="font-size:12px; opacity:0.8;">Transaction Count</div>
+            <div style="font-size:22px; font-weight:bold;">${summary.count}</div>
+        </div>
+
+        <div style="
+            background:#0f172a;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.08);
+        ">
+            <div style="font-size:12px; opacity:0.8;">Total Qty</div>
+            <div style="font-size:22px; font-weight:bold;">${summary.totalQty}</div>
+        </div>
+
+        <div style="
+            background:#0f172a;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.08);
+        ">
+            <div style="font-size:12px; opacity:0.8;">Total Sold Amount</div>
+            <div style="font-size:22px; font-weight:bold; color:#22c55e;">
+                ₱${summary.totalSoldAmount.toLocaleString()}
+            </div>
+        </div>
+    </div>
+`;
     if(filtered.length === 0){
-        html += `<p>No transaction history for this filter.</p>`;
+        html += `<p>No transaction history for this filter/date range.</p>`;
         html += `<button onclick="closeModal()">Close</button>`;
         showModal(html);
         return;
@@ -1015,16 +1146,16 @@ function openTransactionHistoryModal(filterType = "all"){
                 ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
                 <div><b>Item:</b> ${tx.itemName}</div>
                 <div><b>Qty:</b> ${tx.qty}</div>
+                ${tx.type === "sold" ? `<div><b>Unit Price:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>` : ""}
+                ${tx.type === "sold" ? `<div><b>Total Sold:</b> ₱${Number(tx.totalPrice || 0).toLocaleString()}</div>` : ""}
                 <div style="font-size:12px; opacity:0.8; margin-top:4px;">
-                    ${formatTransactionDate(tx.timestamp)}
+                ${formatTransactionDate(tx.timestamp)}
                 </div>
             </div>
         `;
     });
 
-    html += `</div>
-        <button onclick="closeModal()">Close</button>
-    `;
+    html += `</div>`;
 
     showModal(html);
 }
@@ -1054,12 +1185,13 @@ function getAllBrainrotNames(){
     Object.keys(itemPrices || {}).forEach(name => names.add(name));
 
     // 4. from accounts inventory
-    Object.values(accounts || {}).forEach(acc => {
-        Object.keys(acc || {}).forEach(fullName => {
-            let baseName = fullName.split(" - (")[0].trim();
-            if(baseName) names.add(baseName);
-        });
+    Object.keys(accounts || {}).forEach(accountName => {
+    let acc = getAccountItems(accountName);
+    Object.keys(acc || {}).forEach(fullName => {
+        let baseName = fullName.split(" - (")[0].trim();
+        if(baseName) names.add(baseName);
     });
+});
 
     return [...names];
 }
@@ -1430,44 +1562,81 @@ document.addEventListener("click", function(event){
     }
 });
 document.getElementById("importFile").addEventListener("change", function(event){
-
-    let file = event.target.files[0];
+    const file = event.target.files[0];
     if(!file) return;
 
-    let reader = new FileReader();
+    const reader = new FileReader();
 
     reader.onload = function(e){
-
         try{
-            let data = JSON.parse(e.target.result);
+            const data = JSON.parse(e.target.result);
 
-            if(!data.accounts){
+            if(!data || !data.accounts){
                 alert("Invalid backup file.");
                 return;
             }
 
-            if(confirm("Importing will overwrite current data. Continue?")){
-
-                accounts = data.accounts || {};
-                itemDatabase = data.itemDatabase || {};
-                accountOrder = data.accountOrder || Object.keys(accounts);
-                normalizeAccounts();
-                saveAccounts();
-                saveItemDatabase();
-                saveAccountOrder();
-
-                renderRoute();
-                alert("Import successful!");
+            if(!confirm("Importing will overwrite current data. Continue?")){
+                return;
             }
 
-        }catch(err){
+            // Prepare imported values
+            const importedAccounts =
+                (data.accounts && typeof data.accounts === "object") ? data.accounts : {};
+
+            const importedItemDatabase =
+                (data.itemDatabase && typeof data.itemDatabase === "object") ? data.itemDatabase : {};
+
+            const importedAccountOrder =
+                Array.isArray(data.accountOrder) ? data.accountOrder : Object.keys(importedAccounts);
+
+            const importedItemPrices =
+                (data.itemPrices && typeof data.itemPrices === "object") ? data.itemPrices : {};
+
+            const importedItemValues =
+                (data.itemValues && typeof data.itemValues === "object") ? data.itemValues : {};
+
+            const importedTransactionHistory =
+                Array.isArray(data.transactionHistory) ? data.transactionHistory : [];
+
+            // Apply to runtime variables
+            accounts = importedAccounts;
+            itemDatabase = importedItemDatabase;
+            accountOrder = importedAccountOrder;
+            itemValues = importedItemValues;
+            transactionHistory = importedTransactionHistory;
+
+            // Replace prices object contents safely
+            Object.keys(itemPrices).forEach(key => delete itemPrices[key]);
+            Object.assign(itemPrices, importedItemPrices);
+
+            // Normalize accounts before saving
+            normalizeAccounts();
+
+            // Save EVERYTHING directly to localStorage
+            localStorage.setItem("accounts", JSON.stringify(accounts));
+            localStorage.setItem("itemDatabase", JSON.stringify(itemDatabase));
+            localStorage.setItem("accountOrder", JSON.stringify(accountOrder));
+            localStorage.setItem("itemPrices", JSON.stringify(itemPrices));
+            localStorage.setItem("itemValues", JSON.stringify(itemValues));
+            localStorage.setItem("transactionHistory", JSON.stringify(transactionHistory));
+
+            console.log("Imported history count:", importedTransactionHistory.length);
+            console.log("Imported history sample:", importedTransactionHistory[0]);
+
+            document.getElementById("importFile").value = "";
+
+            alert("Import successful! History count: " + importedTransactionHistory.length);
+
+            location.reload();
+
+        } catch(err){
+            console.error(err);
             alert("Invalid JSON file.");
         }
-
     };
 
     reader.readAsText(file);
-
 });
 
 function editTitle(){
@@ -1901,26 +2070,28 @@ function enableSmoothDrag(){
 
 }
 function exportData(){
-
-    let data = {
-        version: 1,
+    const data = {
+        version: 3,
         accounts: accounts,
         itemDatabase: itemDatabase,
-        accountOrder: accountOrder
+        accountOrder: accountOrder,
+        itemPrices: itemPrices,
+        itemValues: itemValues,
+        transactionHistory: transactionHistory
     };
 
-    let json = JSON.stringify(data, null, 2);
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
 
-    let blob = new Blob([json], { type: "application/json" });
-
-    let url = URL.createObjectURL(blob);
-
-    let a = document.createElement("a");
+    const a = document.createElement("a");
     a.href = url;
-    a.download = "kryptic-bns-backup.json";
+    a.download = "kryptic-bns-full-backup.json";
     a.click();
 
     URL.revokeObjectURL(url);
+
+    console.log("EXPORTED history count:", Array.isArray(transactionHistory) ? transactionHistory.length : 0);
 }
 function importData(){
     document.getElementById("importFile").click();
