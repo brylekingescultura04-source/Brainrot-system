@@ -421,6 +421,15 @@ let itemDatabase = JSON.parse(localStorage.getItem("itemDatabase")) || {
     "Esok Sekolah": "images/esok.png",
     "Mieteteira Bicicleteira": "images/miet.png"
 };
+let sellingPlatforms = JSON.parse(localStorage.getItem("sellingPlatforms")) || [
+    "Facebook",
+    "Gameflip",
+    "Other"
+];
+
+function saveSellingPlatforms(){
+    localStorage.setItem("sellingPlatforms", JSON.stringify(sellingPlatforms));
+}
 function changePrice(baseName){
   const current = itemPrices[baseName] ?? 0;
 
@@ -557,6 +566,7 @@ function openInventoryFromSearch(accountName){
     // backup call para sure
     try { renderRoute(); } catch(e) {}
 }
+
 //===================
 // ACCOUNT LIST
 //===================
@@ -857,10 +867,43 @@ function openQuantityActionModal(itemName, actionType){
     let maxQty = Number(item.qty) || 0;
     let actionLabel = actionType === "sold" ? "Sold" : "Remove";
 
+    let extraFields = "";
+
+    if(actionType === "sold"){
+        let baseName = itemName.split(" - (")[0].trim();
+        let defaultPrice = Number(itemPrices[baseName] || 0);
+
+        let platformOptions = sellingPlatforms.map(platform => `
+            <option value="${platform}">${platform}</option>
+        `).join("");
+
+        extraFields = `
+            <label>Price Sold:</label>
+            <input id="soldPriceInput" type="number" min="0" value="${defaultPrice}"
+                   style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+
+            <label>Where Sold:</label>
+            <div style="display:flex; gap:8px; margin:8px 0 12px 0;">
+                <select id="soldPlatformInput"
+                        style="flex:1; padding:8px; border-radius:6px; border:none;">
+                    ${platformOptions}
+                </select>
+
+                <button type="button"
+                        style="width:auto; min-width:110px;"
+                        onclick="addSellingPlatformOption()">
+                    + Add Choice
+                </button>
+            </div>
+        `;
+    }
+
     let html = `
         <h3>${actionLabel} Brainrot</h3>
         <p><b>Item:</b> ${itemName}</p>
         <p><b>Available:</b> ${maxQty}</p>
+
+        ${extraFields}
 
         <label>Quantity:</label>
         <input id="actionQtyInput" type="number" min="1" max="${maxQty}" value="1"
@@ -871,6 +914,45 @@ function openQuantityActionModal(itemName, actionType){
     `;
 
     showModal(html);
+}
+function addSellingPlatformOption(){
+    let newPlatform = prompt("Enter new selling platform:");
+    if(!newPlatform) return;
+
+    newPlatform = newPlatform.trim();
+    if(!newPlatform) return;
+
+    let exists = sellingPlatforms.some(p => p.toLowerCase() === newPlatform.toLowerCase());
+    if(exists){
+        alert("Platform already exists.");
+        return;
+    }
+
+    // Remove "Other" temporarily
+    sellingPlatforms = sellingPlatforms.filter(p => p !== "Other");
+
+    // Add new platform
+    sellingPlatforms.push(newPlatform);
+
+    // Put "Other" back at the bottom
+    sellingPlatforms.push("Other");
+
+    saveSellingPlatforms();
+
+    // Rebuild dropdown
+    let select = document.getElementById("soldPlatformInput");
+    if(select){
+        select.innerHTML = "";
+
+        sellingPlatforms.forEach(platform=>{
+            let option = document.createElement("option");
+            option.value = platform;
+            option.textContent = platform;
+            select.appendChild(option);
+        });
+
+        select.value = newPlatform;
+    }
 }
 function confirmInventoryAction(itemName, actionType){
     let acc = getAccountItems(currentAccount);
@@ -889,21 +971,32 @@ function confirmInventoryAction(itemName, actionType){
         return;
     }
 
+    let extra = {};
+
+    if(actionType === "sold"){
+        let soldPrice = Number(document.getElementById("soldPriceInput").value);
+        let soldPlatform = document.getElementById("soldPlatformInput").value;
+
+        if(!Number.isFinite(soldPrice) || soldPrice < 0){
+            alert("Invalid sold price.");
+            return;
+        }
+
+        if(!soldPlatform || !soldPlatform.trim()){
+            alert("Please select where it was sold.");
+            return;
+        }
+
+        extra.unitPrice = soldPrice;
+        extra.totalPrice = soldPrice * qty;
+        extra.soldPlatform = soldPlatform;
+    }
+
     item.qty -= qty;
 
     if(item.qty <= 0){
         delete acc[itemName];
     }
-
-    let extra = {};
-
-    if(actionType === "sold"){
-    let baseName = itemName.split(" - (")[0].trim();
-    let unitPrice = Number(itemPrices[baseName] || 0);
-
-    extra.unitPrice = unitPrice;
-    extra.totalPrice = unitPrice * qty;
-}
 
     addTransaction(actionType, currentAccount, itemName, qty, extra);
 
@@ -1148,6 +1241,7 @@ html += `
                 <div><b>Qty:</b> ${tx.qty}</div>
                 ${tx.type === "sold" ? `<div><b>Unit Price:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>` : ""}
                 ${tx.type === "sold" ? `<div><b>Total Sold:</b> ₱${Number(tx.totalPrice || 0).toLocaleString()}</div>` : ""}
+                ${tx.type === "sold" ? `<div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>` : ""}
                 <div style="font-size:12px; opacity:0.8; margin-top:4px;">
                 ${formatTransactionDate(tx.timestamp)}
                 </div>
