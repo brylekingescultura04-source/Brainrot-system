@@ -775,12 +775,51 @@ function selectAddItem(index){
 }
 
 function addNewItemModal(){
-    let html=`<h3>Add New Brainrot</h3>
-    <label>Brainrot Name:</label><input id="newItemName"><br>
-    <label>Image:</label><input id="newItemImg"><br>
-    <button onclick="confirmAddNewItem()">Add</button>
-    <button onclick="closeModal()">Cancel</button>`;
+    let html = `<h3>Add New Brainrot (Bulk)</h3>`;
+
+    for(let i = 0; i < 5; i++){
+        html += `
+        <div style="margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
+            <input placeholder="Brainrot Name" class="multiName" style="width:45%; margin-right:5%;">
+            <input placeholder="Image (ex: sample.png)" class="multiImg" style="width:45%;">
+        </div>
+        `;
+    }
+
+    html += `
+        <button onclick="confirmAddMultipleItems()">Add All</button>
+        <button onclick="closeModal()">Cancel</button>
+    `;
+
     showModal(html);
+}
+
+function confirmAddMultipleItems(){
+    let names = document.querySelectorAll(".multiName");
+    let imgs = document.querySelectorAll(".multiImg");
+
+    let added = 0;
+
+    for(let i = 0; i < names.length; i++){
+        let name = names[i].value.trim();
+        let img = imgs[i].value.trim();
+
+        if(!name || !img) continue;
+
+        img = "images/" + img;
+
+        itemDatabase[name] = img;
+        added++;
+    }
+
+    if(added === 0){
+        alert("No valid entries.");
+        return;
+    }
+
+    saveItemDatabase();
+    alert(`${added} brainrots added!`);
+    closeModal();
 }
 
 function confirmAddNewItem(){
