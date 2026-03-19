@@ -286,6 +286,7 @@ img{
     <div class="controls">
         <button class="btn" onclick="openAddItemModal()">+ Add Brainrots</button>
         <button class="btn" onclick="openRemoveInventoryModal()">- Remove Brainrots</button>
+        <button class="btn" style="width:auto; padding:5px 8px;" onclick="openTransferFromInventory()">🔄</button>
     </div>
 
     <div id="items"></div>
@@ -1987,59 +1988,176 @@ function openBrainrotAccountSelector(baseName){
 
     showModal(html);
 }
-function saveAccountOrder(){
-    localStorage.setItem("accountOrder", JSON.stringify(accountOrder));
-}
-function openTransferBrainrotModal(fromAccount, fullItemName){
-    let fromItems = getAccountItems(fromAccount);
-    let itemData = fromItems[fullItemName];
+function openTransferFromInventory(){
+    let acc = getAccountItems(currentAccount);
+    let items = Object.keys(acc);
 
-    if(!itemData){
-        alert("Item not found in source account.");
-        return;
-    }
-
-    let qty = Number(itemData.qty) || 0;
-    if(qty <= 0){
-        alert("No quantity available to transfer.");
+    if(items.length === 0){
+        alert("No items to transfer.");
         return;
     }
 
     let accountOptions = accountOrder
-        .filter(name => name !== fromAccount && accounts[name])
+        .filter(name => name !== currentAccount && accounts[name])
         .map(name => `<option value="${name}">${name} (${getTotalItems(name)}/${getAccountMaxSlots(name)})</option>`)
         .join("");
 
-    if(!accountOptions){
-        alert("No other existing account available.");
-        return;
-    }
-
     let html = `
-        <h3>Transfer Brainrot</h3>
-        <p><b>From:</b> ${fromAccount}</p>
-        <p><b>Item:</b> ${fullItemName}</p>
-        <p><b>Available:</b> ${qty}</p>
+        <h3>Transfer Brainrots</h3>
 
         <label>Target Account:</label>
-        <select id="transferTargetAccount" style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+        <select id="multiTransferTarget" style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
             ${accountOptions}
         </select>
 
-        <label>Quantity:</label>
-        <input id="transferQty" type="number" min="1" max="${qty}" value="1"
-               style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+        <div style="max-height:300px; overflow:auto; margin-top:10px;">
+    `;
 
-        <button onclick="confirmTransferBrainrot('${jsSafe(fromAccount)}', '${jsSafe(fullItemName)}')">Transfer</button>
+    items.forEach(itemName => {
+        html += `
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <label>
+                    <input type="checkbox" class="multiItem" value="${jsSafe(itemName)}">
+                    ${itemName} (${acc[itemName].qty})
+                </label>
+
+                <input type="number" min="1" max="${acc[itemName].qty}" value="${acc[itemName].qty}"
+                       class="multiQty"
+                       data-item="${jsSafe(itemName)}"
+                       style="width:70px;">
+            </div>
+        `;
+    });
+
+    html += `
+        </div>
+
+        <button onclick="transferSelectedItems()">Transfer Selected</button>
+        <button onclick="transferAllItems()">Transfer All</button>
         <button onclick="closeModal()">Cancel</button>
     `;
 
     showModal(html);
 }
+function transferAllItems(){
+    let toAccount = document.getElementById("multiTransferTarget").value;
 
-function confirmTransferBrainrot(fromAccount, fullItemName){
-    let toAccount = document.getElementById("transferTargetAccount").value;
-    let qty = Number(document.getElementById("transferQty").value);
+    let acc = getAccountItems(currentAccount);
+
+    for(let itemName in acc){
+        let qty = acc[itemName].qty;
+
+        confirmTransferBrainrot(currentAccount, itemName, toAccount, qty);
+    }
+
+    closeModal();
+}
+function transferSelectedItems(){
+    let toAccount = document.getElementById("multiTransferTarget").value;
+
+    let checkboxes = document.querySelectorAll(".multiItem:checked");
+
+    if(checkboxes.length === 0){
+        alert("Select at least one item.");
+        return;
+    }
+
+    checkboxes.forEach(cb => {
+        let itemName = cb.value;
+
+        let qtyInput = document.querySelector(`.multiQty[data-item="${CSS.escape(itemName)}"]`);
+        let qty = Number(qtyInput.value);
+
+        confirmTransferBrainrot(currentAccount, itemName, toAccount, qty);
+    });
+
+    closeModal();
+}
+function saveAccountOrder(){
+    localStorage.setItem("accountOrder", JSON.stringify(accountOrder));
+}
+function transferSelectedItems(){
+    let toAccount = document.getElementById("multiTransferTarget").value;
+
+    if(!toAccount || !accounts[toAccount]){
+        alert("Invalid target account.");
+        return;
+    }
+
+    let fromItems = getAccountItems(currentAccount);
+    let toItems = getAccountItems(toAccount);
+
+    let checkboxes = document.querySelectorAll(".multiItem:checked");
+
+    if(checkboxes.length === 0){
+        alert("Select at least one item.");
+        return;
+    }
+
+    // 🔥 calculate total qty first (for slot check)
+    let totalTransferQty = 0;
+    let transfers = [];
+
+    checkboxes.forEach(cb => {
+        let itemName = cb.value;
+
+        let qtyInput = document.querySelector(`.multiQty[data-item="${CSS.escape(itemName)}"]`);
+        let qty = Number(qtyInput.value);
+
+        let available = fromItems[itemName]?.qty || 0;
+
+        if(!Number.isInteger(qty) || qty < 1 || qty > available){
+            return;
+        }
+
+        totalTransferQty += qty;
+        transfers.push({ itemName, qty });
+    });
+
+    if(transfers.length === 0){
+        alert("No valid items selected.");
+        return;
+    }
+
+    let freeSlots = getAccountMaxSlots(toAccount) - getTotalItems(toAccount);
+
+    if(freeSlots < totalTransferQty){
+        alert(`Not enough space in ${toAccount}. Available slots: ${freeSlots}`);
+        return;
+    }
+
+    // 🔥 APPLY ALL TRANSFERS
+    transfers.forEach(t => {
+        let itemData = fromItems[t.itemName];
+
+        if(!toItems[t.itemName]){
+            toItems[t.itemName] = {
+                qty: t.qty,
+                img: itemData.img
+            };
+        } else {
+            toItems[t.itemName].qty += t.qty;
+        }
+
+        itemData.qty -= t.qty;
+
+        if(itemData.qty <= 0){
+            delete fromItems[t.itemName];
+        }
+
+        addTransaction("transfer", currentAccount, t.itemName, t.qty, { toAccount });
+    });
+
+    saveAccounts();
+    loadAccounts();
+    closeModal();
+
+    try{ searchAllBrainrots(); } catch(e){}
+}
+
+function confirmTransferBrainrot(fromAccount, fullItemName, forcedToAccount = null, forcedQty = null){
+    let toAccount = forcedToAccount || document.getElementById("transferTargetAccount")?.value;
+    let qty = forcedQty || Number(document.getElementById("transferQty")?.value);
 
     if(!toAccount || !accounts[toAccount]){
         alert("Target account does not exist.");
