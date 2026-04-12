@@ -918,6 +918,17 @@ function openQuantityActionModal(itemName, actionType){
         `).join("");
 
         extraFields = `
+        <label>Currency:</label>
+<select id="currencyType" onchange="toggleRobuxRate()" style="width:100%;padding:8px;margin:8px 0;">
+    <option value="php">Pesos</option>
+    <option value="robux">Robux</option>
+</select>
+
+<div id="robuxRateContainer">
+    <label>Robux Rate (₱ per 1 Robux):</label>
+    <input id="robuxRateInput" type="number" step="0.01" value="0.33"
+    style="width:100%;padding:8px;margin:8px 0;">
+</div>
             <label>Price Get:</label>
             <input id="priceGetInput" type="number" min="0" value="0"
             style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
@@ -956,8 +967,20 @@ function openQuantityActionModal(itemName, actionType){
         <button onclick="confirmInventoryAction('${jsSafe(itemName)}', '${actionType}')">${actionLabel}</button>
         <button onclick="openRemoveOrSoldChoice('${jsSafe(itemName)}')">Back</button>
     `;
-
+    setTimeout(toggleRobuxRate, 0);
     showModal(html);
+}
+function toggleRobuxRate(){
+    let currency = document.getElementById("currencyType").value;
+    let robuxDiv = document.getElementById("robuxRateContainer");
+
+    if(!robuxDiv) return;
+
+    if(currency === "robux"){
+        robuxDiv.style.display = "block";
+    } else {
+        robuxDiv.style.display = "none";
+    }
 }
 function addSellingPlatformOption(){
     let newPlatform = prompt("Enter new selling platform:");
@@ -1018,18 +1041,34 @@ function confirmInventoryAction(itemName, actionType){
     let extra = {};
 
     if(actionType === "sold"){
-        let priceGet = Number(document.getElementById("priceGetInput").value);
-let soldPrice = Number(document.getElementById("soldPriceInput").value);
-let soldPlatform = document.getElementById("soldPlatformInput").value;
+    let priceGet = Number(document.getElementById("priceGetInput").value);
+    let soldPrice = Number(document.getElementById("soldPriceInput").value);
+    let soldPlatform = document.getElementById("soldPlatformInput").value;
 
-let profit = (soldPrice - priceGet) * qty;
+    let currencyType = document.getElementById("currencyType").value;
+    let robuxRate = Number(document.getElementById("robuxRateInput").value) || 0;
 
-extra.unitPrice = soldPrice;
-extra.priceGet = priceGet;
-extra.profit = profit;
-extra.totalPrice = soldPrice * qty;
-extra.soldPlatform = soldPlatform;
+    let profit = (soldPrice - priceGet) * qty;
+    let rate = priceGet > 0 ? (profit / priceGet) : 0;
+
+    let profitPeso = 0;
+
+    if(currencyType === "robux"){
+        profitPeso = profit * robuxRate;
+    } else {
+        profitPeso = profit;
     }
+
+    extra.unitPrice = soldPrice;
+    extra.priceGet = priceGet;
+    extra.profit = profit;
+    extra.rate = rate;
+    extra.currency = currencyType;
+    extra.robuxRate = robuxRate;
+    extra.profitPeso = profitPeso;
+    extra.totalPrice = soldPrice * qty;
+    extra.soldPlatform = soldPlatform;
+}
 
     item.qty -= qty;
 
@@ -1146,9 +1185,9 @@ function getTransactionSummary(list){
         summary.totalQty += Number(tx.qty || 0);
 
         if(tx.type === "sold"){
-            let profit = Number(tx.profit || 0);
-            summary.totalSoldAmount += profit;
-        }
+    let pesoProfit = Number(tx.profitPeso || 0);
+    summary.totalSoldAmount += pesoProfit;
+}
     });
 
     return summary;
@@ -1243,9 +1282,13 @@ html += `
             border:1px solid rgba(255,255,255,0.08);
         ">
             <div style="font-size:12px; opacity:0.8;">Total Sold Amount</div>
-            <div style="font-size:22px; font-weight:bold; color:#22c55e;">
-                ₱${summary.totalSoldAmount.toLocaleString()}
-            </div>
+            <div style="
+    font-size:22px;
+    font-weight:bold;
+    color:${summary.totalSoldAmount >= 0 ? '#22c55e' : '#ef4444'};
+">
+    ₱${Math.floor(summary.totalSoldAmount).toLocaleString()}
+</div>
         </div>
     </div>
 `;
@@ -1259,36 +1302,82 @@ html += `
     html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
 
     filtered.forEach(tx => {
-        html += `
-            <div style="
-                background:#0f172a;
-                padding:10px;
-                border-radius:8px;
-                border:1px solid rgba(255,255,255,0.08);
-            ">
-                <div style="
-                    font-weight:bold;
-                    color:${getTransactionColor(tx.type)};
-                    text-transform:uppercase;
-                    margin-bottom:6px;
-                ">
-                    ${tx.type}
-                </div>
 
-                <div><b>Account:</b> ${tx.account}</div>
-                ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
-                <div><b>Item:</b> ${tx.itemName}</div>
-                <div><b>Qty:</b> ${tx.qty}</div>
-                <div><b>Price Get:</b> ₱${Number(tx.priceGet || 0).toLocaleString()}</div>
-<div><b>Unit Price:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>
-<div><b>Profit:</b> ₱${Number(tx.profit || 0).toLocaleString()}</div>
-                ${tx.type === "sold" ? `<div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>` : ""}
-                <div style="font-size:12px; opacity:0.8; margin-top:4px;">
-                ${formatTransactionDate(tx.timestamp)}
-                </div>
+    html += `
+        <div style="
+            background:#0f172a;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.08);
+        ">
+            <div style="
+                font-weight:bold;
+                color:${getTransactionColor(tx.type)};
+                text-transform:uppercase;
+                margin-bottom:6px;
+            ">
+                ${tx.type}
             </div>
-        `;
-    });
+
+            <div><b>Account:</b> ${tx.account}</div>
+            ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
+            <div><b>Item:</b> ${tx.itemName}</div>
+            <div><b>Qty:</b> ${tx.qty}</div>
+
+            ${
+                tx.type === "sold"
+                ? (
+                    tx.currency === "robux"
+                    ? `
+                        <hr>
+                        <div><b>Currency:</b> Robux</div>
+                        <div><b>Robux Rate:</b> ${tx.robuxRate || 0}</div>
+
+                        <hr>
+
+                        <div><b>Robux Get:</b> ${tx.priceGet || 0}</div>
+                        <div><b>Robux Sold:</b> ${tx.unitPrice || 0}</div>
+                        <div>
+                        <b>Robux Profit:</b> 
+                        <span style="color:${tx.profit >= 0 ? '#22c55e' : '#ef4444'}">
+                       ${Math.floor(Number(tx.profit || 0))}
+                        </span>
+                        </div>
+                        <div>
+    <b>Pesos Profit:</b> 
+    <span style="color:${tx.profitPeso >= 0 ? '#22c55e' : '#ef4444'}">
+        ₱${Math.floor(Number(tx.profitPeso || 0)).toLocaleString()}
+    </span>
+</div>
+                        <div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>
+                    `
+                    : `
+                        <hr>
+                        <div><b>Currency:</b> Pesos</div>
+
+                        <hr>
+
+                        <div><b>Price Get:</b> ₱${Number(tx.priceGet || 0).toLocaleString()}</div>
+                        <div><b>Price Sold:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>
+                        <div>
+                        <b>Profit:</b> 
+                        <span style="color:${tx.profit >= 0 ? '#22c55e' : '#ef4444'}">
+                         ₱${Math.floor(Number(tx.profit || 0)).toLocaleString()}
+                        </span>
+                        </div>
+                        <div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>
+                    `
+                )
+                : ""
+            }
+
+            <div style="font-size:12px; opacity:0.8; margin-top:4px;">
+                ${formatTransactionDate(tx.timestamp)}
+            </div>
+        </div>
+    `;
+
+});
 
     html += `</div>`;
 
