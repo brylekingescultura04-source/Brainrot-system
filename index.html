@@ -918,9 +918,13 @@ function openQuantityActionModal(itemName, actionType){
         `).join("");
 
         extraFields = `
+            <label>Price Get:</label>
+            <input id="priceGetInput" type="number" min="0" value="0"
+            style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+
             <label>Price Sold:</label>
             <input id="soldPriceInput" type="number" min="0" value="${defaultPrice}"
-                   style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+            style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
 
             <label>Where Sold:</label>
             <div style="display:flex; gap:8px; margin:8px 0 12px 0;">
@@ -1014,22 +1018,17 @@ function confirmInventoryAction(itemName, actionType){
     let extra = {};
 
     if(actionType === "sold"){
-        let soldPrice = Number(document.getElementById("soldPriceInput").value);
-        let soldPlatform = document.getElementById("soldPlatformInput").value;
+        let priceGet = Number(document.getElementById("priceGetInput").value);
+let soldPrice = Number(document.getElementById("soldPriceInput").value);
+let soldPlatform = document.getElementById("soldPlatformInput").value;
 
-        if(!Number.isFinite(soldPrice) || soldPrice < 0){
-            alert("Invalid sold price.");
-            return;
-        }
+let profit = (soldPrice - priceGet) * qty;
 
-        if(!soldPlatform || !soldPlatform.trim()){
-            alert("Please select where it was sold.");
-            return;
-        }
-
-        extra.unitPrice = soldPrice;
-        extra.totalPrice = soldPrice * qty;
-        extra.soldPlatform = soldPlatform;
+extra.unitPrice = soldPrice;
+extra.priceGet = priceGet;
+extra.profit = profit;
+extra.totalPrice = soldPrice * qty;
+extra.soldPlatform = soldPlatform;
     }
 
     item.qty -= qty;
@@ -1147,7 +1146,8 @@ function getTransactionSummary(list){
         summary.totalQty += Number(tx.qty || 0);
 
         if(tx.type === "sold"){
-            summary.totalSoldAmount += Number(tx.totalPrice || 0);
+            let profit = Number(tx.profit || 0);
+            summary.totalSoldAmount += profit;
         }
     });
 
@@ -1279,8 +1279,9 @@ html += `
                 ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
                 <div><b>Item:</b> ${tx.itemName}</div>
                 <div><b>Qty:</b> ${tx.qty}</div>
-                ${tx.type === "sold" ? `<div><b>Unit Price:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>` : ""}
-                ${tx.type === "sold" ? `<div><b>Total Sold:</b> ₱${Number(tx.totalPrice || 0).toLocaleString()}</div>` : ""}
+                <div><b>Price Get:</b> ₱${Number(tx.priceGet || 0).toLocaleString()}</div>
+<div><b>Unit Price:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>
+<div><b>Profit:</b> ₱${Number(tx.profit || 0).toLocaleString()}</div>
                 ${tx.type === "sold" ? `<div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>` : ""}
                 <div style="font-size:12px; opacity:0.8; margin-top:4px;">
                 ${formatTransactionDate(tx.timestamp)}
