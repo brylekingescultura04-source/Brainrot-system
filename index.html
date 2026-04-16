@@ -932,7 +932,10 @@ function openQuantityActionModal(itemName, actionType){
             <label id="priceGetLabel">Robux Get:</label>
 <input id="priceGetInput" type="number" min="0" value="0"
 style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
-
+<div id="robuxToPesoPreview" 
+     style="margin-top:5px;font-size:13px;color:#9ca3af;">
+    ≈ ₱0.00
+</div>
 <label>Pesos Sold:</label>
 <input id="soldPriceInput" type="number" min="0" value="${defaultPrice}"
 style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
@@ -1149,7 +1152,31 @@ function openRemoveItemNameModal(){
     html+=`<button onclick="closeModal()">Cancel</button>`;
     showModal(html);
 }
+function updateRobuxPreview(){
 
+    let currency = document.getElementById("currencyType")?.value;
+    if(currency !== "robux") return;
+
+    let robux = Number(document.getElementById("priceGetInput")?.value || 0);
+    let rate = Number(document.getElementById("robuxRateInput")?.value || 0);
+
+    let pesos = robux * rate;
+
+    document.getElementById("robuxToPesoPreview").textContent =
+        "≈ ₱" + pesos.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+}
+document.addEventListener("input", function(e){
+    if(
+        e.target.id === "priceGetInput" ||
+        e.target.id === "robuxRateInput" ||
+        e.target.id === "currencyType"
+    ){
+        updateRobuxPreview();
+    }
+});
 function confirmRemoveItemName(itemName){
     if(!confirm("Delete Brainrot name: "+itemName+"?")) return;
     delete itemDatabase[itemName]; saveItemDatabase();
