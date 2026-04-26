@@ -232,7 +232,52 @@ img{
 </style>
 </head>
 <body>
+<div id="homeStats" style="
+    display:grid;
+    grid-template-columns:repeat(3, minmax(220px, 1fr));
+    gap:12px;
+    max-width:900px;
+    margin:18px auto 10px auto;
+    text-align:left;
+">
+    <div style="background:#0f172a;padding:12px;border-radius:8px; position:relative;">
+    <div style="font-size:13px;">Capital:</div>
 
+    <div id="capitalBox" onclick="editCapital()"
+        style="font-size:24px;font-weight:bold;cursor:pointer;">
+        ₱0
+    </div>
+
+    <!-- 🔴 RESET DOT -->
+    <div onclick="resetCapital()"
+        title="Reset Capital"
+        style="
+            position:absolute;
+            top:8px;
+            right:10px;
+            width:10px;
+            height:10px;
+            background:#ef4444;
+            border-radius:50%;
+            cursor:pointer;
+        ">
+    </div>
+</div>
+
+    <div style="background:#0f172a;padding:12px;border-radius:8px;">
+        <div style="font-size:13px;">Balance Total:</div>
+        <div id="balanceBox" style="font-size:24px;font-weight:bold;">
+            ₱0
+        </div>
+    </div>
+
+    <div style="background:#0f172a;padding:12px;border-radius:8px;">
+        <div style="font-size:13px;">Profit:</div>
+        <div id="profitBox" style="font-size:24px;font-weight:bold;color:#22c55e;">
+            ₱0
+        </div>
+    </div>
+</div>
 <div id="accountPage">
 
   <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:20px; position:relative;">
@@ -242,6 +287,9 @@ img{
         <button class="btn"
         style="width:auto; padding:5px 10px; font-size:14px;"
         onclick="openTransactionHistoryModal()">📜</button>
+        <button class="btn"
+        style="width:auto; padding:5px 10px; font-size:14px;"
+        onclick="openPendingSalesModal()">⏳</button>
         </div>
 
         <button class="btn"
@@ -631,7 +679,17 @@ btn.oncontextmenu = (e) => {
     }
 };
 
-let statusColor = total >= maxSlots ? "red" : "yellow";
+let statusColor;
+
+if(total === 0){
+    statusColor = "#64748b"; // 🔵 blue = empty
+}
+else if(total >= maxSlots){
+    statusColor = "red"; // 🔴 full
+}
+else{
+    statusColor = "yellow"; // 🟡 has items
+}
 
 btn.innerHTML = `
     <span style="color:white;">${name}</span>
@@ -853,25 +911,242 @@ function promptCustomRarity(itemName,img){
     confirmAddItem(itemName,img,rarity);
 }
 
-function confirmAddItem(itemName,img,rarity){
+function confirmAddItem(itemName, img, rarity){
     let maxCanAdd = getAccountMaxSlots(currentAccount) - getTotalItems(currentAccount);
-    if(maxCanAdd<=0){alert("Inventory FULL!"); closeModal(); return;}
-    let qty=prompt(`Enter quantity (1 to ${maxCanAdd}):`);
-    qty=parseInt(qty);
-    if(isNaN(qty)||qty<1||qty>maxCanAdd){alert("Invalid"); return;}
-    let fullName=`${itemName} - (${rarity})`;
+
+    if(maxCanAdd <= 0){
+        alert("Inventory FULL!");
+        closeModal();
+        return;
+    }
+
+    let html = `
+        <h3>Add Brainrot</h3>
+        <p><b>${itemName} - (${rarity})</b></p>
+
+        <label>Currency:</label>
+        <select id="addCurrencyType" onchange="toggleAddRobuxRate(); updateAddRobuxPreview()"
+            style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+            <option value="php">Pesos</option>
+            <option value="robux">Robux</option>
+        </select>
+
+        <div id="addRobuxRateContainer" style="display:none;">
+            <label>Robux Rate (₱ per 1 Robux):</label>
+            <input id="addRobuxRateInput" type="number" step="0.01" min="0" value="0.33"
+                oninput="updateAddRobuxPreview()"
+                style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+        </div>
+
+        <label id="addPriceGetLabel">Price Get (₱):</label>
+        <input id="addPriceGetInput" type="number" min="0" step="0.01" value="0"
+            oninput="updateAddRobuxPreview()"
+            style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+
+        <div id="addRobuxPreview" style="font-size:13px;color:#9ca3af;margin-bottom:10px;">
+            ≈ ₱0.00
+        </div>
+
+        <label>Quantity:</label>
+        <input id="addQtyInput" type="number" min="1" max="${maxCanAdd}" value="1"
+            style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+
+        <button onclick="confirmAddItemFinal('${jsSafe(itemName)}','${jsSafe(img)}','${jsSafe(rarity)}')">
+            Add
+        </button>
+        <button onclick="selectRarity('${jsSafe(itemName)}','${jsSafe(img)}')">Back</button>
+        <button onclick="closeModal()">Cancel</button>
+    `;
+
+    showModal(html);
+}
+function toggleAddRobuxRate(){
+    let currency = document.getElementById("addCurrencyType").value;
+    let rateBox = document.getElementById("addRobuxRateContainer");
+    let label = document.getElementById("addPriceGetLabel");
+
+    if(currency === "robux"){
+        rateBox.style.display = "block";
+        label.innerText = "Robux Get:";
+    } else {
+        rateBox.style.display = "none";
+        label.innerText = "Price Get (₱):";
+    }
+}
+
+function updateAddRobuxPreview(){
+    let currency = document.getElementById("addCurrencyType")?.value;
+    let priceGet = Number(document.getElementById("addPriceGetInput")?.value || 0);
+    let rate = Number(document.getElementById("addRobuxRateInput")?.value || 0);
+    let preview = document.getElementById("addRobuxPreview");
+
+    if(!preview) return;
+
+    if(currency === "robux"){
+        preview.innerText = "≈ ₱" + (priceGet * rate).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    } else {
+        preview.innerText = "≈ ₱" + priceGet.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+}
+
+function confirmAddItemFinal(itemName, img, rarity){
+    let maxCanAdd = getAccountMaxSlots(currentAccount) - getTotalItems(currentAccount);
+
+    let currency = document.getElementById("addCurrencyType").value;
+    let rawPriceGet = Number(document.getElementById("addPriceGetInput").value);
+    let robuxRate = Number(document.getElementById("addRobuxRateInput").value) || 0;
+    let qty = Number(document.getElementById("addQtyInput").value);
+
+    if(!Number.isFinite(rawPriceGet) || rawPriceGet < 0){
+        alert("Invalid Price Get.");
+        return;
+    }
+
+    if(!Number.isInteger(qty) || qty < 1 || qty > maxCanAdd){
+        alert("Invalid quantity.");
+        return;
+    }
+
+    let priceGetPeso = currency === "robux"
+        ? rawPriceGet * robuxRate
+        : rawPriceGet;
+
+    let fullName = `${itemName} - (${rarity})`;
     let acc = getAccountItems(currentAccount);
 
     if(!acc[fullName]){
-    acc[fullName] = {qty, img};
+        acc[fullName] = {
+            qty: qty,
+            img: img,
+            priceGet: priceGetPeso,
+            priceGetCurrency: currency,
+            rawPriceGet: rawPriceGet,
+            robuxRate: robuxRate
+        };
     } else {
-    acc[fullName].qty += qty;
-}
-    addTransaction("add", currentAccount, fullName, qty);
+        let oldQty = Number(acc[fullName].qty) || 0;
+        let oldPrice = Number(acc[fullName].priceGet) || 0;
+        let newTotalQty = oldQty + qty;
+
+        acc[fullName].priceGet =
+            ((oldPrice * oldQty) + (priceGetPeso * qty)) / newTotalQty;
+
+        acc[fullName].qty = newTotalQty;
+    }
+
+    addTransaction("add", currentAccount, fullName, qty, {
+        priceGet: priceGetPeso,
+        rawPriceGet: rawPriceGet,
+        currency: currency,
+        robuxRate: robuxRate,
+        totalCost: priceGetPeso * qty
+    });
+
     saveAccounts();
+    updateHomeStats();
     openInventory(currentAccount);
     loadAccounts();
     closeModal();
+}
+let defaultRobuxRate = Number(localStorage.getItem("defaultRobuxRate")) || 0.33;
+
+function saveDefaultRobuxRate(rate){
+    if(Number.isFinite(rate) && rate >= 0){
+        defaultRobuxRate = rate;
+        localStorage.setItem("defaultRobuxRate", defaultRobuxRate);
+    }
+}
+let manualCapital = Number(localStorage.getItem("manualCapital")) || 0;
+let capitalStartedAt = localStorage.getItem("capitalStartedAt") || "1970-01-01T00:00:00.000Z";
+function editCapital(){
+    let input = prompt("Enter Capital:", manualCapital);
+
+    if(input === null) return;
+
+    input = Number(String(input).replace(/,/g, "").trim());
+
+    if(!Number.isFinite(input) || input < 0){
+        alert("Invalid capital.");
+        return;
+    }
+
+    manualCapital = input;
+    capitalStartedAt = new Date().toISOString();
+
+    localStorage.setItem("manualCapital", manualCapital);
+    localStorage.setItem("capitalStartedAt", capitalStartedAt);
+
+    updateHomeStats();
+}
+
+function getBalanceTotal(){
+    let totalSpent = 0;
+
+    transactionHistory.forEach(tx => {
+        if(tx.type === "add" && new Date(tx.timestamp) >= new Date(capitalStartedAt)){
+            totalSpent += Number(tx.totalCost || 0);
+        }
+    });
+
+    return manualCapital - totalSpent;
+}
+function getTotalSoldMoney(){
+    let total = 0;
+
+    transactionHistory.forEach(tx => {
+        if(tx.type === "sold"){
+            total += Number(tx.totalPrice || tx.soldPeso || 0);
+        }
+    });
+
+    return total;
+}
+
+function resetCapital(){
+    if(!confirm("Reset home capital, balance, and profit to ₱0?")) return;
+
+    manualCapital = 0;
+    capitalStartedAt = new Date().toISOString();
+
+    localStorage.setItem("manualCapital", manualCapital);
+    localStorage.setItem("capitalStartedAt", capitalStartedAt);
+
+    updateHomeStats();
+}
+function getTotalProfit(){
+    let total = 0;
+
+    transactionHistory.forEach(tx => {
+        if(tx.type === "sold" && new Date(tx.timestamp) >= new Date(capitalStartedAt)){
+            total += Number(tx.profitPeso ?? tx.profit ?? 0);
+        }
+    });
+
+    return total;
+}
+
+function updateHomeStats(){
+    let capital = manualCapital;
+    let balance = getBalanceTotal();
+    let profit = getTotalProfit();
+
+    let capitalBox = document.getElementById("capitalBox");
+    let balanceBox = document.getElementById("balanceBox");
+    let profitBox = document.getElementById("profitBox");
+
+    capitalBox.innerText = "₱" + Math.floor(capital).toLocaleString();
+
+    balanceBox.innerText = "₱" + Math.floor(balance).toLocaleString();
+    balanceBox.style.color = balance >= 0 ? "white" : "#ef4444";
+
+    profitBox.innerText = "₱" + Math.floor(profit).toLocaleString();
+    profitBox.style.color = profit >= 0 ? "#22c55e" : "#ef4444";
 }
 function openRemoveOrSoldChoice(itemName){
     let acc = getAccountItems(currentAccount);
@@ -906,49 +1181,56 @@ function openQuantityActionModal(itemName, actionType){
 
     let maxQty = Number(item.qty) || 0;
     let actionLabel = actionType === "sold" ? "Sold" : "Remove";
-
     let extraFields = "";
 
     if(actionType === "sold"){
-        let baseName = itemName.split(" - (")[0].trim();
-        let defaultPrice = Number(itemPrices[baseName] || 0);
+        let storedPriceGet = Number(item.priceGet || 0);
+        let storedCurrency = item.priceGetCurrency || "php";
+        let storedRawPrice = Number(item.rawPriceGet || storedPriceGet || 0);
+        let storedRate = Number(item.robuxRate || defaultRobuxRate || 0.33);
 
         let platformOptions = sellingPlatforms.map(platform => `
             <option value="${platform}">${platform}</option>
         `).join("");
 
         extraFields = `
-        <label>Currency:</label>
-<select id="currencyType" onchange="toggleRobuxRate(); updateLabels()" style="width:100%;padding:8px;margin:8px 0;">
-    <option value="php">Pesos</option>
-    <option value="robux">Robux</option>
-</select>
+            <label>Price Get Currency:</label>
+            <select id="soldPriceGetCurrency" onchange="toggleSoldPriceGetCurrency(); updateSoldPriceGetPreview()"
+                style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+                <option value="php" ${storedCurrency === "php" ? "selected" : ""}>Pesos</option>
+                <option value="robux" ${storedCurrency === "robux" ? "selected" : ""}>Robux</option>
+            </select>
 
-<div id="robuxRateContainer">
-    <label>Robux Rate (₱ per 1 Robux):</label>
-    <input id="robuxRateInput" type="number" step="0.01" value="0.33"
-    style="width:100%;padding:8px;margin:8px 0;">
-</div>
-            <label id="priceGetLabel">Robux Get:</label>
-<input id="priceGetInput" type="number" min="0" value="0"
-style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
-<div id="robuxToPesoPreview" 
-     style="margin-top:5px;font-size:13px;color:#9ca3af;">
-    ≈ ₱0.00
-</div>
-<label>Pesos Sold:</label>
-<input id="soldPriceInput" type="number" min="0" value="${defaultPrice}"
-style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+            <div id="soldRobuxRateContainer">
+                <label>Robux Rate (₱ per 1 Robux):</label>
+                <input id="soldRobuxRateInput" type="number" step="0.01" min="0" value="${storedRate}"
+                    oninput="updateSoldPriceGetPreview()"
+                    style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+            </div>
+
+            <label id="soldPriceGetLabel">Price Get:</label>
+            <input id="soldPriceGetInput" type="number" min="0" step="0.01" value="${storedRawPrice}"
+                oninput="updateSoldPriceGetPreview()"
+                style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+
+            <div id="soldPriceGetPreview" style="margin-top:5px;font-size:13px;color:#9ca3af;">
+                ≈ ₱${storedPriceGet.toLocaleString()}
+            </div>
+
+            <label>Pesos Sold:</label>
+            <input id="soldPriceInput" type="number" min="0" value="0"
+                style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
+
             <label>Where Sold:</label>
             <div style="display:flex; gap:8px; margin:8px 0 12px 0;">
                 <select id="soldPlatformInput"
-                        style="flex:1; padding:8px; border-radius:6px; border:none;">
+                    style="flex:1; padding:8px; border-radius:6px; border:none;">
                     ${platformOptions}
                 </select>
 
                 <button type="button"
-                        style="width:auto; min-width:110px;"
-                        onclick="addSellingPlatformOption()">
+                    style="width:auto; min-width:110px;"
+                    onclick="addSellingPlatformOption()">
                     + Add Choice
                 </button>
             </div>
@@ -964,17 +1246,60 @@ style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;
 
         <label>Quantity:</label>
         <input id="actionQtyInput" type="number" min="1" max="${maxQty}" value="1"
-               style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
+            style="width:100%;padding:8px;margin:8px 0 12px 0;border-radius:6px;border:none;">
 
-        <button onclick="confirmInventoryAction('${jsSafe(itemName)}', '${actionType}')">${actionLabel}</button>
+        ${
+    actionType === "sold"
+    ? `
+        <button onclick="confirmInventoryAction('${jsSafe(itemName)}', 'pending')">Mark as Pending</button>
+        <button onclick="confirmInventoryAction('${jsSafe(itemName)}', 'sold')">Mark as Sold</button>
+    `
+    : `<button onclick="confirmInventoryAction('${jsSafe(itemName)}', '${actionType}')">${actionLabel}</button>`
+}
         <button onclick="openRemoveOrSoldChoice('${jsSafe(itemName)}')">Back</button>
     `;
-    setTimeout(() => {
-    toggleRobuxRate();
-    updateLabels();
-}, 50);
+
     showModal(html);
+
+    if(actionType === "sold"){
+        setTimeout(() => {
+            toggleSoldPriceGetCurrency();
+            updateSoldPriceGetPreview();
+        }, 50);
+    }
 }
+function toggleSoldPriceGetCurrency(){
+    let currency = document.getElementById("soldPriceGetCurrency")?.value;
+    let rateBox = document.getElementById("soldRobuxRateContainer");
+    let label = document.getElementById("soldPriceGetLabel");
+
+    if(!currency || !rateBox || !label) return;
+
+    if(currency === "robux"){
+        rateBox.style.display = "block";
+        label.innerText = "Robux Get:";
+    } else {
+        rateBox.style.display = "none";
+        label.innerText = "Price Get (₱):";
+    }
+}
+
+function updateSoldPriceGetPreview(){
+    let currency = document.getElementById("soldPriceGetCurrency")?.value;
+    let rawPrice = Number(document.getElementById("soldPriceGetInput")?.value || 0);
+    let rate = Number(document.getElementById("soldRobuxRateInput")?.value || 0);
+    let preview = document.getElementById("soldPriceGetPreview");
+
+    if(!preview) return;
+
+    let pesoValue = currency === "robux" ? rawPrice * rate : rawPrice;
+
+    preview.innerText = "≈ ₱" + pesoValue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 function toggleRobuxRate(){
     let currency = document.getElementById("currencyType").value;
     let robuxDiv = document.getElementById("robuxRateContainer");
@@ -1058,49 +1383,61 @@ function confirmInventoryAction(itemName, actionType){
 
     let extra = {};
 
-    if(actionType === "sold"){
-    let priceGet = Number(document.getElementById("priceGetInput").value);
-    let soldPrice = Number(document.getElementById("soldPriceInput").value);
-    let soldPlatform = document.getElementById("soldPlatformInput").value;
+    if(actionType === "sold" || actionType === "pending"){
+        let itemData = acc[itemName];
 
-    let currencyType = document.getElementById("currencyType").value;
-    let robuxRate = Number(document.getElementById("robuxRateInput").value) || 0;
+        let priceGetCurrency = document.getElementById("soldPriceGetCurrency").value;
+        let rawPriceGet = Number(document.getElementById("soldPriceGetInput").value);
+        let robuxRate = Number(document.getElementById("soldRobuxRateInput").value) || 0;
 
-    let profit = 0;
-let profitPeso = 0;
-let rate = 0;
-let robuxValuePeso = 0; // ✅ ADD THIS
+        let priceGet = priceGetCurrency === "robux"
+            ? rawPriceGet * robuxRate
+            : rawPriceGet;
 
-if(currencyType === "robux"){
-    let puhunanPeso = priceGet * robuxRate;
+        let soldPrice = Number(document.getElementById("soldPriceInput").value);
+        let soldPlatform = document.getElementById("soldPlatformInput").value;
 
-    robuxValuePeso = puhunanPeso; // ✅ ADD THIS
+        let profitPeso = (soldPrice - priceGet) * qty;
+        let profit = profitPeso;
+        let rate = priceGet > 0 ? (profitPeso / priceGet) : 0;
 
-    profitPeso = (soldPrice - puhunanPeso) * qty;
+        itemData.priceGet = priceGet;
+        itemData.priceGetCurrency = priceGetCurrency;
+        itemData.rawPriceGet = rawPriceGet;
+        itemData.robuxRate = robuxRate;
 
-    // optional robux profit
-    profit = ((soldPrice / robuxRate) - priceGet) * qty;
+        extra = {
+            unitPrice: soldPrice,
+            soldPeso: soldPrice,
+            priceGet: priceGet,
+            rawPriceGet: rawPriceGet,
+            priceGetCurrency: priceGetCurrency,
+            robuxRate: robuxRate,
+            profit: profit,
+            rate: rate,
+            currency: "php",
+            profitPeso: profitPeso,
+            robuxValuePeso: priceGet,
+            totalPrice: soldPrice * qty,
+            soldPlatform: soldPlatform
+        };
 
-    rate = puhunanPeso > 0 ? (profitPeso / puhunanPeso) : 0;
+        if(actionType === "pending"){
+            pendingSales.unshift({
+                account: currentAccount,
+                itemName,
+                qty,
+                timestamp: new Date().toISOString(),
+                ...extra
+            });
 
-} else {
-    profitPeso = (soldPrice - priceGet) * qty;
-    profit = profitPeso;
-
-    rate = priceGet > 0 ? (profit / priceGet) : 0;
-}
-
-    extra.unitPrice = soldPrice;
-extra.priceGet = priceGet;
-extra.profit = profit;
-extra.rate = rate;
-extra.currency = currencyType;
-extra.robuxRate = robuxRate;
-extra.profitPeso = profitPeso;
-extra.robuxValuePeso = robuxValuePeso; // ✅ ADD THIS
-extra.totalPrice = soldPrice * qty;
-extra.soldPlatform = soldPlatform;
-}
+            savePendingSales();
+        } else {
+            addTransaction("sold", currentAccount, itemName, qty, extra);
+        }
+    } else {
+        addTransaction(actionType, currentAccount, itemName, qty, extra);
+    }
 
     item.qty -= qty;
 
@@ -1108,12 +1445,121 @@ extra.soldPlatform = soldPlatform;
         delete acc[itemName];
     }
 
-    addTransaction(actionType, currentAccount, itemName, qty, extra);
-
     saveAccounts();
     openInventory(currentAccount);
     loadAccounts();
+    updateHomeStats();
     closeModal();
+}
+function openPendingSalesModal(){
+    let html = `<h3>Pending Sales</h3>`;
+
+    if(pendingSales.length === 0){
+        html += `<p>No pending sales.</p>`;
+        html += `<button onclick="closeModal()">Close</button>`;
+        showModal(html);
+        return;
+    }
+
+    html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+
+    pendingSales.forEach((sale, index) => {
+        html += `
+            <div style="
+                background:#0f172a;
+                padding:10px;
+                border-radius:8px;
+                border:1px solid rgba(255,255,255,0.08);
+            ">
+                <div><b>Account:</b> ${sale.account}</div>
+                <div><b>Item:</b> ${sale.itemName}</div>
+                <div><b>Qty:</b> ${sale.qty}</div>
+                <div><b>Price Get:</b> ₱${Number(sale.priceGet || 0).toLocaleString()}</div>
+                <div><b>Pesos Sold:</b> ₱${Number(sale.unitPrice || 0).toLocaleString()}</div>
+                <div>
+                    <b>Profit:</b>
+                    <span style="color:${sale.profitPeso >= 0 ? '#22c55e' : '#ef4444'}">
+                        ₱${Math.floor(Number(sale.profitPeso || 0)).toLocaleString()}
+                    </span>
+                </div>
+                <div><b>Where Sold:</b> ${sale.soldPlatform || "N/A"}</div>
+                <div style="font-size:12px; opacity:0.8; margin-top:4px;">
+                    ${formatTransactionDate(sale.timestamp)}
+                </div>
+
+                <button onclick="completePendingSale(${index})">Complete / Accepted</button>
+                <button onclick="cancelPendingSale(${index})">Cancel / Return Item</button>
+            </div>
+        `;
+    });
+
+    html += `</div><button onclick="closeModal()">Close</button>`;
+
+    showModal(html);
+}
+function completePendingSale(index){
+    let sale = pendingSales[index];
+    if(!sale) return;
+
+    addTransaction("sold", sale.account, sale.itemName, sale.qty, {
+        unitPrice: sale.unitPrice,
+        soldPeso: sale.soldPeso,
+        priceGet: sale.priceGet,
+        rawPriceGet: sale.rawPriceGet,
+        priceGetCurrency: sale.priceGetCurrency,
+        robuxRate: sale.robuxRate,
+        profit: sale.profit,
+        rate: sale.rate,
+        currency: "php",
+        profitPeso: sale.profitPeso,
+        robuxValuePeso: sale.robuxValuePeso,
+        totalPrice: sale.totalPrice,
+        soldPlatform: sale.soldPlatform
+    });
+
+    pendingSales.splice(index, 1);
+    savePendingSales();
+
+    updateHomeStats();
+    openPendingSalesModal();
+}
+
+function cancelPendingSale(index){
+    let sale = pendingSales[index];
+    if(!sale) return;
+
+    if(!confirm("Cancel pending sale and return item to inventory?")) return;
+
+    if(!accounts[sale.account]){
+        accounts[sale.account] = {
+            items: {},
+            maxSlots: 10
+        };
+    }
+
+    let acc = getAccountItems(sale.account);
+
+    if(!acc[sale.itemName]){
+        acc[sale.itemName] = {
+            qty: sale.qty,
+            img: itemDatabase[sale.itemName.split(" - (")[0].trim()] || "images/empty.png",
+            priceGet: sale.priceGet,
+            rawPriceGet: sale.rawPriceGet,
+            priceGetCurrency: sale.priceGetCurrency,
+            robuxRate: sale.robuxRate
+        };
+    } else {
+        acc[sale.itemName].qty += sale.qty;
+    }
+
+    pendingSales.splice(index, 1);
+
+    saveAccounts();
+    savePendingSales();
+
+    updateHomeStats();
+    loadAccounts();
+    openPendingSalesModal();
 }
 //===================
 // REMOVE INVENTORY MODAL
@@ -2336,6 +2782,7 @@ function transferSelectedItems(){
 
     saveAccounts();
     loadAccounts();
+    updateHomeStats();
     closeModal();
 
     try{ searchAllBrainrots(); } catch(e){}
@@ -2388,6 +2835,7 @@ function confirmTransferBrainrot(fromAccount, fullItemName, forcedToAccount = nu
 
     saveAccounts();
     loadAccounts();
+    updateHomeStats();
     closeModal();
 
     try{
@@ -2498,7 +2946,11 @@ function saveItemValues(){
     localStorage.setItem("itemValues", JSON.stringify(itemValues));
 }
 let transactionHistory = JSON.parse(localStorage.getItem("transactionHistory")) || [];
+let pendingSales = JSON.parse(localStorage.getItem("pendingSales")) || [];
 
+function savePendingSales(){
+    localStorage.setItem("pendingSales", JSON.stringify(pendingSales));
+}
 function saveTransactionHistory(){
     localStorage.setItem("transactionHistory", JSON.stringify(transactionHistory));
 }
@@ -2566,6 +3018,7 @@ function renderRoute(){
         const accountName = decodeURIComponent(hash.slice(4));
 
         // ✅ HIDE ACCOUNTS
+        document.getElementById("homeStats").style.display = "none";
         document.getElementById("accountPage").style.display = "none";
         document.getElementById("inventoryPage").style.display = "block";
 
@@ -2574,10 +3027,12 @@ function renderRoute(){
     } else {
 
         // ✅ SHOW ACCOUNTS
+        document.getElementById("homeStats").style.display = "grid";
         document.getElementById("inventoryPage").style.display = "none";
         document.getElementById("accountPage").style.display = "block";
 
         loadAccounts();
+        updateHomeStats();
     }
 }
 
