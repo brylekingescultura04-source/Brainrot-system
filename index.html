@@ -933,7 +933,7 @@ function confirmAddItem(itemName, img, rarity){
 
         <div id="addRobuxRateContainer" style="display:none;">
             <label>Robux Rate (₱ per 1 Robux):</label>
-            <input id="addRobuxRateInput" type="number" step="0.01" min="0" value="0.33"
+            <input id="addRobuxRateInput" type="number" step="0.01" min="0" value="0.25"
                 oninput="updateAddRobuxPreview()"
                 style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:none;">
         </div>
@@ -1054,7 +1054,7 @@ function confirmAddItemFinal(itemName, img, rarity){
     loadAccounts();
     closeModal();
 }
-let defaultRobuxRate = Number(localStorage.getItem("defaultRobuxRate")) || 0.33;
+let defaultRobuxRate = Number(localStorage.getItem("defaultRobuxRate")) || 0.25;
 
 function saveDefaultRobuxRate(rate){
     if(Number.isFinite(rate) && rate >= 0){
@@ -1187,7 +1187,7 @@ function openQuantityActionModal(itemName, actionType){
         let storedPriceGet = Number(item.priceGet || 0);
         let storedCurrency = item.priceGetCurrency || "php";
         let storedRawPrice = Number(item.rawPriceGet || storedPriceGet || 0);
-        let storedRate = Number(item.robuxRate || defaultRobuxRate || 0.33);
+        let storedRate = Number(item.robuxRate || defaultRobuxRate || 0.25);
 
         let platformOptions = sellingPlatforms.map(platform => `
             <option value="${platform}">${platform}</option>
@@ -1473,7 +1473,7 @@ function openPendingSalesModal(){
             ">
                 <div><b>Account:</b> ${sale.account}</div>
                 <div><b>Item:</b> ${sale.itemName}</div>
-                <div><b>Qty:</b> ${sale.qty}</div>
+                
                 <div><b>Price Get:</b> ₱${Number(sale.priceGet || 0).toLocaleString()}</div>
                 <div><b>Pesos Sold:</b> ₱${Number(sale.unitPrice || 0).toLocaleString()}</div>
                 <div>
@@ -1822,9 +1822,36 @@ html += `
             </div>
 
             <div><b>Account:</b> ${tx.account}</div>
-            ${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
-            <div><b>Item:</b> ${tx.itemName}</div>
-            <div><b>Qty:</b> ${tx.qty}</div>
+${tx.toAccount ? `<div><b>To:</b> ${tx.toAccount}</div>` : ""}
+<div><b>Item:</b> ${tx.itemName}</div>
+
+${
+    tx.type === "add"
+    ? `
+        <hr style="margin:8px 0; border-color:rgba(255,255,255,0.4);">
+
+        <div><b>Currency:</b> ${tx.currency === "robux" ? "Robux" : "Pesos"}</div>
+
+        <hr style="margin:8px 0; border-color:rgba(255,255,255,0.4);">
+
+        <div><b>Price Get:</b> ${
+            tx.currency === "robux"
+            ? `${Number(tx.rawPriceGet || 0).toLocaleString()} Robux ≈ ₱${Number(tx.priceGet || 0).toLocaleString()}`
+            : `₱${Number(tx.priceGet || 0).toLocaleString()}`
+        }</div>
+    `
+    : ""
+}
+
+${
+    tx.type !== "sold"
+    ? `<div><b>Qty:</b> ${
+        tx.type === "add" && Number(tx.qty) > 1
+        ? `${tx.qty} ≈ ₱${Math.floor(Number(tx.priceGet || 0) * Number(tx.qty || 0)).toLocaleString()}`
+        : tx.qty
+    }</div>`
+    : ""
+}
 
             ${
                 tx.type === "sold"
@@ -1855,21 +1882,39 @@ html += `
     <div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>
 `
                     : `
-                        <hr>
-                        <div><b>Currency:</b> Pesos</div>
+    <hr style="margin:8px 0; border-color:rgba(255,255,255,0.4);">
+    <div><b>Currency:</b> Pesos</div>
+    <hr style="margin:8px 0; border-color:rgba(255,255,255,0.4);">
 
-                        <hr>
+    <div><b>Price Get:</b> ₱${Number(tx.priceGet || 0).toLocaleString()}</div>
+    <div><b>Price Sold:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>
+    <div><b>Qty:</b> ${
+    (() => {
+        let qty = Number(tx.qty || 0);
 
-                        <div><b>Price Get:</b> ₱${Number(tx.priceGet || 0).toLocaleString()}</div>
-                        <div><b>Price Sold:</b> ₱${Number(tx.unitPrice || 0).toLocaleString()}</div>
-                        <div>
-                        <b>Profit:</b> 
-                        <span style="color:${tx.profit >= 0 ? '#22c55e' : '#ef4444'}">
-                         ₱${Math.floor(Number(tx.profit || 0)).toLocaleString()}
-                        </span>
-                        </div>
-                        <div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>
-                    `
+        // 👉 if only 1, keep it simple
+        if(qty === 1){
+            return "1";
+        }
+
+        // 👉 if 2 or more, show calculation
+        let sold = Number(tx.unitPrice || 0);
+        let get = Number(tx.priceGet || 0);
+
+        let perItem = sold - get;
+        let total = perItem * qty;
+
+        return `${qty} × ₱${perItem.toLocaleString()} = ₱${total.toLocaleString()}`;
+    })()
+}</div>
+    <div>
+        <b>Profit:</b> 
+        <span style="color:${tx.profit >= 0 ? '#22c55e' : '#ef4444'}">
+            ₱${Math.floor(Number(tx.profit || 0)).toLocaleString()}
+        </span>
+    </div>
+    <div><b>Where Sold:</b> ${tx.soldPlatform || "N/A"}</div>
+`
                 )
                 : ""
             }
